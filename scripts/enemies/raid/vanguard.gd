@@ -3,8 +3,9 @@ extends Enemy
 ##   Melee  - rushes you down
 ##   Ranged - calls down rock falls around you
 ##   Magic  - fires spreads of magic orbs
-## The raid resets all three to full health if their health drifts too far
-## apart, so damage has to be spread evenly (see raid.gd).
+## If one falls too far behind the others in health, the raid shields it: it
+## turns grey inside a crystal barrier and shots do nothing until the others
+## catch up (see raid.gd).
 
 const KINDS := {
 	"melee": Color(0.85, 0.25, 0.2),
@@ -73,6 +74,10 @@ func _fire(attack_name: String) -> float:
 func _draw() -> void:
 	var color: Color = KINDS[kind]
 	var metal := Color(0.35, 0.36, 0.4)
+	if invulnerable:
+		# Drained of colour while shielded.
+		color = Color(0.55, 0.57, 0.62)
+		metal = Color(0.28, 0.29, 0.32)
 	draw_set_transform(Vector2(0, 22), 0.0, Vector2(1.0, 0.35))
 	draw_circle(Vector2.ZERO, 20.0, Color(0, 0, 0, 0.3))
 	draw_set_transform(Vector2(0, sin(time * 5.0) * 1.5))
@@ -87,4 +92,21 @@ func _draw() -> void:
 	var glow := color.lightened(0.5) if is_attacking() else color.lightened(0.2)
 	draw_circle(Vector2.ZERO, 4.0, glow)
 	draw_set_transform(Vector2.ZERO)
+	if invulnerable:
+		_draw_shield()
 	draw_health_bar(28.0)
+
+
+## A pulsing crystal barrier with rotating facets and an IMMUNE label.
+func _draw_shield() -> void:
+	var pulse := 0.5 + 0.5 * sin(time * 5.0)
+	var ice := Color(0.6, 0.88, 1.0)
+	draw_circle(Vector2.ZERO, 32.0, Color(ice, 0.18 + 0.1 * pulse))
+	draw_arc(Vector2.ZERO, 32.0, 0.0, TAU, 40, Color(ice, 0.7 + 0.3 * pulse), 2.5)
+	for k in 6:
+		var angle := TAU * k / 6.0 - time * 0.8
+		var a := Vector2.from_angle(angle) * 32.0
+		var b := Vector2.from_angle(angle + TAU / 6.0) * 32.0
+		draw_line(a, b, Color(1, 1, 1, 0.5), 1.5)
+		draw_circle(a, 2.5, Color(1, 1, 1, 0.8))
+	draw_string(ThemeDB.fallback_font, Vector2(-40, -38), "IMMUNE", HORIZONTAL_ALIGNMENT_CENTER, 80, 12, ice)

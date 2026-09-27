@@ -13,31 +13,36 @@ const DarkWizard := preload("res://scripts/enemies/dark_wizard.gd")
 const HillGiant := preload("res://scripts/enemies/hill_giant.gd")
 const GreenDragon := preload("res://scripts/enemies/green_dragon.gd")
 const LesserDemon := preload("res://scripts/enemies/lesser_demon.gd")
+const MountainTroll := preload("res://scripts/enemies/mountain_troll.gd")
 const BOSSES := [
 	preload("res://scripts/enemies/bosses/zulrah.gd"),
 	preload("res://scripts/enemies/bosses/vorkath.gd"),
 	preload("res://scripts/enemies/bosses/giant_mole.gd"),
 ]
 
-## Enemies to keep alive per zone tier.
-const TARGET_PER_ZONE := [14, 14, 12, 10]
-## OSRS monsters for each zone (repeats make a kind more common).
+## Enemies to keep alive per zone tier (outer rings are bigger).
+const TARGET_PER_ZONE := [12, 14, 16, 18, 18, 18, 20]
+## OSRS monsters for each zone (repeats make a kind more common). Each zone
+## mixes in some of the previous zone's monsters so difficulty ramps smoothly.
 const ZONE_ROSTERS := [
-	[Goblin, Goblin, GiantRat],            # Lumbridge Fields
-	[Wolf, DarkWizard, Goblin],            # Draynor Woods
-	[HillGiant, HillGiant, DarkWizard, Wolf],  # Giants' Plateau
-	[GreenDragon, LesserDemon, HillGiant], # The Wilderness
+	[Goblin, Goblin, GiantRat],                            # Lumbridge Fields
+	[Goblin, GiantRat, Wolf],                              # Draynor Woods
+	[Wolf, Wolf, DarkWizard, Goblin],                      # Barbarian Village
+	[HillGiant, HillGiant, DarkWizard, Wolf],              # Giants' Plateau
+	[MountainTroll, MountainTroll, HillGiant],             # Troll Country
+	[GreenDragon, MountainTroll, DarkWizard],              # Low Wilderness
+	[GreenDragon, LesserDemon, LesserDemon, MountainTroll],  # Deep Wilderness
 ]
 const MIN_SPAWN_DISTANCE := 700.0
 const BOSS_RESPAWN_DELAY := 45.0
-const BOSS_TIER := 3
+const BOSS_TIER := 6
 
 ## Set by the main scene.
 var enemy_parent: Node2D
 var shots: Node2D
 var player: Node2D
 
-var counts := [0, 0, 0, 0]
+var counts := [0, 0, 0, 0, 0, 0, 0]
 var boss: Enemy
 var last_boss := -1
 var boss_timer := 5.0

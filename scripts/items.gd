@@ -89,12 +89,13 @@ static func random_item(tier: int) -> Dictionary:
 	return ring(tier)
 
 
-## Open-world monster drops: Iron near Lumbridge up to Adamant in the
-## Wilderness (zone tier 0-3).
+## Open-world monster drops over the seven zones (0-6): Iron around Lumbridge,
+## Steel and Mithril through the middle, Adamant in the Deep Wilderness, with a
+## 25% chance of one tier better (never above Adamant).
 static func roll_monster_drop(zone_tier: int) -> Array:
-	if randf() > 0.3 + 0.05 * zone_tier:
+	if randf() > 0.3 + 0.03 * zone_tier:
 		return []
-	var tier := zone_tier + randi_range(0, 1)
+	var tier := 1 + zone_tier / 2 + (1 if randf() < 0.25 else 0)
 	return [random_item(clampi(tier, 1, 4))]
 
 

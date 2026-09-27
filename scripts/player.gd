@@ -38,6 +38,9 @@ var walk_time := 0.0
 var moving := false
 var hurt_timer := 0.0
 var slow_timer := 0.0
+## Testing aid toggled with 9: all damage dealt is multiplied by DEV_DAMAGE.
+var dev_mode := false
+const DEV_DAMAGE := 10.0
 var warcry_timer := 0.0
 var warcry := {}
 
@@ -82,7 +85,7 @@ func shots_per_second() -> float:
 
 func damage_multiplier() -> float:
 	var bonus: float = warcry.damage_bonus if warcry_timer > 0.0 else 0.0
-	return (0.5 + stat("attack") / 50.0) * (1.0 + bonus)
+	return (0.5 + stat("attack") / 50.0) * (1.0 + bonus) * (DEV_DAMAGE if dev_mode else 1.0)
 
 
 func regen_per_second() -> float:

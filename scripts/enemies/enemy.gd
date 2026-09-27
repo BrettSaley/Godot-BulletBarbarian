@@ -7,13 +7,17 @@ extends Node2D
 ##   _fire(name)     fire one volley, return seconds until the next
 ##   _move(delta)    how it moves (default: circle the player at a distance)
 ##   _draw()         how it looks
-## `tier` (0-3, from the zone it spawned in) scales health, damage and speed.
+## `tier` (0-6, from the zone it spawned in) scales health, damage and speed.
+## Monsters are leashed: they give up the chase once you get a little past
+## their aggro range or drag them too far from home, then walk back.
 
 signal died(enemy: Enemy)
 
 const ATTACK_DURATION := 3.0
 ## Enemies farther than this from the player don't think at all.
 const SLEEP_DISTANCE := 1100.0
+## After giving up a chase, a monster ignores the player this long.
+const CALM_TIME := 2.0
 
 var display_name := "Enemy"
 var radius := 14.0
@@ -26,6 +30,8 @@ var contact_damage := 20.0
 var aggro_range := 480.0
 var preferred_range := 220.0
 var wander_radius := 200.0
+## How far from home a monster will chase before giving up.
+var leash_range := 500.0
 var is_boss := false
 ## Drawn and hit-tested this much bigger than the art is authored, so
 ## monsters are easy to see and hit. Bosses are already large.
@@ -34,6 +40,8 @@ var size_scale := 1.4
 var drops_loot := true
 ## Burrowed, dived or shielded: projectiles pass through and touching is safe.
 var untargetable := false
+## Shielded: shots still hit (and are used up) but deal no damage.
+var invulnerable := false
 ## Projectiles.Style used by shoot() (rocks by default).
 var projectile_style := 0
 
@@ -48,6 +56,7 @@ var home: Vector2
 
 var target: Vector2
 var aggro := false
+var calm_timer := 0.0
 var attack := ""
 var attack_timer := 0.0
 var rest_timer := 1.0
@@ -62,14 +71,15 @@ func setup(zone_tier: int, shot_layer: Node2D, target_player: Node2D) -> void:
 	tier = zone_tier
 	shots = shot_layer
 	player = target_player
-	difficulty = clampf(tier / 3.0, 0.0, 1.0)
-	max_hp *= 1.0 + tier
+	difficulty = clampf(tier / 6.0, 0.0, 1.0)
+	max_hp *= 1.0 + 0.6 * tier
 	hp = max_hp
-	xp *= 1 + tier
-	bullet_damage *= 1.0 + 0.5 * tier
-	contact_damage *= 1.0 + 0.5 * tier
-	move_speed *= 1.0 + 0.1 * tier
+	xp = roundi(xp * (1.0 + 0.6 * tier))
+	bullet_damage *= 1.0 + 0.25 * tier
+	contact_damage *= 1.0 + 0.25 * tier
+	move_speed *= 1.0 + 0.05 * tier
 	if is_boss:
+		leash_range = maxf(leash_range, 900.0)
 		size_scale = minf(size_scale, 1.15)
 	scale = Vector2.ONE * size_scale
 	radius *= size_scale
@@ -96,6 +106,9 @@ func touches(point: Vector2, other_radius: float) -> bool:
 func take_damage(amount: float) -> void:
 	if not is_active():
 		return
+	if invulnerable:
+		DamageText.spawn(get_parent(), position + Vector2(0, -radius - 8), "IMMUNE", Color(0.6, 0.85, 1.0))
+		return
 	hp -= amount
 	flash_timer = 0.08
 	aggro = true
@@ -115,13 +128,15 @@ func _physics_process(delta: float) -> void:
 	contact_timer -= delta
 	queue_redraw()
 
-	if not aggro and to_player < aggro_range:
+	calm_timer -= delta
+	if not aggro and calm_timer <= 0.0 and to_player < aggro_range:
 		aggro = true
 		target = pick_wander_target()
-	elif aggro and to_player > aggro_range * 1.8:
+	elif aggro and (to_player > aggro_range * 1.25 or position.distance_to(home) > leash_range):
 		aggro = false
 		attack = ""
-		target = pick_wander_target()
+		calm_timer = CALM_TIME
+		target = home
 	_move(delta)
 
 	if contact_damage > 0.0 and contact_timer <= 0.0 and not untargetable and touches(player.position, player.hitbox_radius):
@@ -179,7 +194,9 @@ func _move(delta: float) -> void:
 		var desired := player.position + away.rotated(0.35 * orbit_dir) * preferred_range
 		position = position.move_toward(desired, move_speed * delta)
 	else:
-		position = position.move_toward(target, move_speed * 0.4 * delta)
+		# Hurry home after giving up a chase, otherwise amble about.
+		var pace := 1.0 if calm_timer > 0.0 else 0.4
+		position = position.move_toward(target, move_speed * pace * delta)
 		if position.distance_to(target) < 4.0:
 			target = pick_wander_target()
 

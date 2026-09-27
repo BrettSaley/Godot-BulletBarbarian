@@ -4,6 +4,8 @@ extends Node2D
 ## the side of the realm. A lobby, three combat rooms picked at random
 ## (Tekton, Vanguards, Vasa Nistirio, Lizardman Shamans), the Great Olm, then
 ## the reward chest. Walking into a room seals it until its boss is dead.
+## The Olm fights in three phases (hands, hands, then hands and head), and
+## the Vanguards shield whichever one falls too far behind the others.
 ## All positions are in world coordinates (the node itself sits at 0,0).
 
 signal enemy_died(enemy: Enemy)
@@ -19,22 +21,27 @@ const LizardmanShaman := preload("res://scripts/enemies/raid/lizardman_shaman.gd
 const OlmHead := preload("res://scripts/enemies/raid/olm_head.gd")
 const OlmHand := preload("res://scripts/enemies/raid/olm_hand.gd")
 
-const ORIGIN := Vector2(6000, 600)
+## Built well past the realm's east edge.
+const ORIGIN := Vector2(World.SIZE.x + 1500, 600)
 const ROOM_SIZE := Vector2(900, 560)
 const SMALL_ROOM := Vector2(560, 440)
 const OLM_ROOM := Vector2(1100, 680)
 const CORRIDOR := Vector2(220, 140)
 ## The top of the Olm room is the wall its head and hands sit in.
 const OLM_WALL := 130.0
+## How far each corridor's walkable strip extends into the rooms it joins.
+const DOORWAY_OVERLAP := 30.0
 const COMBAT_ROOMS := ["tekton", "vanguards", "vasa", "shamans"]
 const ROOM_NAMES := {
 	"lobby": "Chambers of Xeric", "tekton": "Tekton", "vanguards": "Vanguards", "vasa": "Vasa Nistirio",
 	"shamans": "Lizardman Shamans", "olm": "The Great Olm", "chest": "Reward Chamber",
 }
-## Vanguards reset to full health if their health (%) drifts further apart than this.
-const VANGUARD_SPREAD := 0.4
+## A Vanguard this far (in health %) below the healthiest one becomes immune.
+const VANGUARD_SPREAD := 0.3
+## Pause before the Olm rises with new hands between phases.
+const OLM_RISE_DELAY := 3.0
 ## Raid monsters use this zone tier for their stat scaling.
-const RAID_TIER := 2
+const RAID_TIER := 4
 const FLOOR := Color(0.2, 0.19, 0.22)
 const WALL := Color(0.09, 0.08, 0.1)
 
@@ -110,7 +117,9 @@ func walkable() -> Array[Rect2]:
 		if rooms[i].state != "cleared":
 			break
 		if i < corridors.size():
-			rects.append(corridors[i])
+			# Reach past the doorways into both rooms: room floors are inset from
+			# their walls, so a wall-to-wall corridor would leave a gap at each door.
+			rects.append(corridors[i].grow_individual(DOORWAY_OVERLAP, 0, DOORWAY_OVERLAP, 0))
 	return rects
 
 
@@ -131,6 +140,8 @@ func _physics_process(delta: float) -> void:
 			"fighting":
 				if room.kind == "vanguards":
 					_balance_vanguards(room)
+				elif room.kind == "olm":
+					_update_olm_phases(room, delta)
 				room.required = room.required.filter(func(e): return is_instance_valid(e) and e.hp > 0.0)
 				if room.required.is_empty():
 					_clear(room)
@@ -165,16 +176,11 @@ func _start(room: Dictionary) -> void:
 			for i in 3:
 				room.required.append(_spawn(LizardmanShaman, c + Vector2(100 + i * 60, (i - 1) * 120)))
 		"olm":
-			var wall_y := rect.position.y + OLM_WALL * 0.5
-			var head: Enemy = _spawn(OlmHead, Vector2(c.x, wall_y))
+			var head: Enemy = _spawn(OlmHead, Vector2(c.x, rect.position.y + OLM_WALL * 0.5))
 			head.room = rect
-			for side in ["left", "right"]:
-				var hand: Enemy = OlmHand.new()
-				hand.set_side(side)
-				hand.room = rect
-				_add(hand, Vector2(c.x + (-200.0 if side == "left" else 200.0), wall_y + 20))
-				head.hands.append(hand)
+			_spawn_olm_hands(head)
 			room.required = [head]
+			room.respawn_timer = 0.0
 	walkable_changed.emit(walkable())
 	announce.emit(ROOM_NAMES[room.kind])
 
@@ -191,16 +197,51 @@ func _clear(room: Dictionary) -> void:
 	announce.emit("%s defeated!" % ROOM_NAMES[room.kind] if room.kind != "olm" else "The Great Olm is slain! Claim your reward.")
 
 
-## If one Vanguard is beaten down much faster than the others, they all reset.
+func _spawn_olm_hands(head: Enemy) -> void:
+	var hands: Array = []
+	for side in ["left", "right"]:
+		var hand: Enemy = OlmHand.new()
+		hand.set_side(side)
+		hand.room = head.room
+		_add(hand, head.position + Vector2(-200.0 if side == "left" else 200.0, 20))
+		hands.append(hand)
+	head.hands = hands
+
+
+## Phases 1 and 2 end when both hands die: after a pause the Olm rises again
+## with fresh hands. In the final phase the head opens up instead (olm_head.gd).
+func _update_olm_phases(room: Dictionary, delta: float) -> void:
+	var head = room.required[0] if not room.required.is_empty() else null
+	if not is_instance_valid(head) or head.hands_alive() or head.phase >= OlmHead.FINAL_PHASE:
+		return
+	if room.respawn_timer <= 0.0:
+		room.respawn_timer = OLM_RISE_DELAY
+		announce.emit("The Great Olm's hands fall... it rises again!")
+		return
+	room.respawn_timer -= delta
+	if room.respawn_timer <= 0.0:
+		head.phase += 1
+		_spawn_olm_hands(head)
+		var last: bool = head.phase == OlmHead.FINAL_PHASE
+		announce.emit("Phase %d of %d%s" % [head.phase, OlmHead.FINAL_PHASE, ": kill the hands, then the head!" if last else ""])
+
+
+## Vanguards must be worn down together: any Vanguard whose health falls too
+## far below the healthiest one is shielded (immune) until the others catch up.
 func _balance_vanguards(room: Dictionary) -> void:
 	var alive: Array = room.required.filter(func(e): return is_instance_valid(e) and e.hp > 0.0)
-	if alive.size() < 3:
-		return
-	var fractions := alive.map(func(e): return e.hp / e.max_hp)
-	if fractions.max() - fractions.min() > VANGUARD_SPREAD:
+	if alive.size() < 2:
 		for vanguard in alive:
-			vanguard.hp = vanguard.max_hp
-		announce.emit("The Vanguards reset! Spread your damage evenly.")
+			vanguard.invulnerable = false
+		return
+	var highest: float = alive.map(func(e): return e.hp / e.max_hp).max()
+	for vanguard in alive:
+		var fraction: float = vanguard.hp / vanguard.max_hp
+		if not vanguard.invulnerable and fraction < highest - VANGUARD_SPREAD:
+			vanguard.invulnerable = true
+			announce.emit("The %s is shielded! Damage the others." % vanguard.display_name)
+		elif vanguard.invulnerable and fraction >= highest - VANGUARD_SPREAD * 0.5:
+			vanguard.invulnerable = false
 
 
 func _spawn(kind: GDScript, pos: Vector2) -> Enemy:
@@ -210,6 +251,7 @@ func _spawn(kind: GDScript, pos: Vector2) -> Enemy:
 func _add(enemy: Enemy, pos: Vector2) -> Enemy:
 	enemy.position = pos
 	enemy.setup(RAID_TIER, shots, player)
+	enemy.leash_range = INF  # sealed in the room anyway
 	enemy.add_to_group("raid_enemies")
 	enemy.died.connect(func(e: Enemy): enemy_died.emit(e))
 	enemy_parent.add_child(enemy)

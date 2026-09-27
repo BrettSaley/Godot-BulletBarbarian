@@ -30,9 +30,13 @@ var message_label: Label
 var message_timer := 0.0
 var boss_arrow: Control
 var death_panel: Control
+var dev_label: Label
+var pause_menu: ColorRect
 
 
 func _ready() -> void:
+	# Keep working while the game is paused so the pause menu can be used.
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	_build_zone_label()
 	_build_status_panel()
 	_build_item_panel()
@@ -116,6 +120,55 @@ func show_death(killer: String, level: int) -> void:
 	button.pressed.connect(restart_requested.emit)
 	column.add_child(button)
 	button.grab_focus()
+
+
+## Esc pauses the game with Resume / Quit buttons (not while dead).
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		if pause_menu and pause_menu.visible:
+			resume()
+		elif death_panel == null:
+			pause()
+		get_viewport().set_input_as_handled()
+
+
+func pause() -> void:
+	if pause_menu == null:
+		_build_pause_menu()
+	pause_menu.visible = true
+	get_tree().paused = true
+	pause_menu.get_node("Center/Column/Resume").grab_focus()
+
+
+func resume() -> void:
+	pause_menu.visible = false
+	get_tree().paused = false
+
+
+func _build_pause_menu() -> void:
+	pause_menu = ColorRect.new()
+	pause_menu.color = Color(0, 0, 0, 0.6)
+	pause_menu.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(pause_menu)
+	var center := CenterContainer.new()
+	center.name = "Center"
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	pause_menu.add_child(center)
+	var column := VBoxContainer.new()
+	column.name = "Column"
+	column.add_theme_constant_override("separation", 14)
+	center.add_child(column)
+	var title := _label("Paused", 40, Color(1, 0.9, 0.6))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	column.add_child(title)
+	for entry in [["Resume", resume], ["Quit", get_tree().quit]]:
+		var button := Button.new()
+		button.name = entry[0]
+		button.text = entry[0]
+		button.custom_minimum_size = Vector2(220, 44)
+		button.add_theme_font_size_override("font_size", 22)
+		button.pressed.connect(entry[1])
+		column.add_child(button)
 
 
 # --- Building the layout ---
@@ -288,3 +341,11 @@ func _draw_boss_arrow() -> void:
 		edge + dir * 14, edge + dir.orthogonal() * 9, edge - dir.orthogonal() * 9]), color)
 	boss_arrow.draw_string(ThemeDB.fallback_font, edge - dir * 18 + Vector2(-60, 5), boss.display_name,
 			HORIZONTAL_ALIGNMENT_CENTER, 120, 13, color)
+
+
+func set_dev_mode(on: bool) -> void:
+	if dev_label == null:
+		dev_label = _label("DEV MODE  (10x damage, press 9 to turn off)", 14, Color(1, 0.4, 0.9))
+		dev_label.position = Vector2(12, 32)
+		add_child(dev_label)
+	dev_label.visible = on

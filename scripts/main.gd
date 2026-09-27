@@ -5,6 +5,10 @@ extends Node2D
 ## and permadeath (a new Barbarian starts from scratch).
 
 const RAID_PORTAL_LIFETIME := 60.0
+## Screen pixels per world pixel. Fixed, so a bigger window shows more of the
+## world instead of zooming in (1600x900 shows a 960x540 view).
+const VIEW_SCALE := 1600.0 / 960.0
+const MIN_WINDOW := Vector2i(1280, 720)
 
 @onready var bags: Node2D = $Bags
 @onready var portals: Node2D = $Portals
@@ -25,6 +29,9 @@ var shown_bag_size := -1
 func _ready() -> void:
 	RenderingServer.set_default_clear_color(Color(0.05, 0.05, 0.06))
 	Input.set_default_cursor_shape(Input.CURSOR_CROSS)
+	get_window().min_size = MIN_WINDOW
+	get_window().size_changed.connect(_fit_view_to_window)
+	_fit_view_to_window()
 
 	player.shots = player_shots
 	player.died.connect(_on_player_died)
@@ -69,11 +76,18 @@ func _process(_delta: float) -> void:
 	hud.area_name = raid.room_name_at(player.position) if raid else World.zone_name(player.position)
 
 
-## F11 switches between full screen and a window.
+## F11 switches between full screen and a window; 9 toggles dev mode.
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F11:
-		var fullscreen := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
-		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if fullscreen else DisplayServer.WINDOW_MODE_FULLSCREEN)
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return
+	match event.keycode:
+		KEY_F11:
+			var fullscreen := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if fullscreen else DisplayServer.WINDOW_MODE_FULLSCREEN)
+		KEY_9, KEY_KP_9:
+			player.dev_mode = not player.dev_mode
+			hud.set_dev_mode(player.dev_mode)
+			hud.show_message("Dev mode ON: 10x damage" if player.dev_mode else "Dev mode OFF", 1.5)
 
 
 # --- Travelling ---
@@ -238,3 +252,9 @@ func _spawn_bag(pos: Vector2, items: Array) -> void:
 	bag.position = pos
 	bag.items = items
 	bags.add_child(bag)
+
+
+## Grow or shrink the visible world with the window, keeping things the same size.
+func _fit_view_to_window() -> void:
+	var window := get_window()
+	window.content_scale_size = Vector2i((Vector2(window.size) / VIEW_SCALE).round())
