@@ -1,6 +1,6 @@
 class_name BarbarianArt
 extends RefCounted
-## Chibi barbarian drawing shared by the player and the dark barbarian boss:
+## Chibi barbarian drawing (palettes let other classes or enemies reuse it):
 ## big head, horned helmet, angry brows over sparkly eyes, tiny axe.
 ## Drawn facing right; `facing` mirrors it, `size` scales the whole figure.
 
@@ -15,19 +15,6 @@ const HERO := {
 	"gold": Color(0.95, 0.8, 0.3),
 	"eye_shine": Color(1, 1, 1),
 	"cheeks": Color(1, 0.45, 0.5, 0.65),
-}
-
-const VILLAIN := {
-	"skin": Color(0.78, 0.62, 0.55),
-	"fur": Color(0.22, 0.2, 0.22),
-	"dark": Color(0.1, 0.05, 0.06),
-	"beard": Color(0.15, 0.12, 0.12),
-	"steel": Color(0.3, 0.3, 0.36),
-	"rim": Color(0.6, 0.12, 0.12),
-	"horn": Color(0.7, 0.15, 0.12),
-	"gold": Color(0.8, 0.15, 0.1),
-	"eye_shine": Color(1, 0.25, 0.2),
-	"cheeks": Color(0, 0, 0, 0),
 }
 
 

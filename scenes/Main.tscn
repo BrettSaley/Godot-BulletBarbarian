@@ -1,90 +1,39 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/Player.tscn" id="1_player"]
 [ext_resource type="Script" path="res://scripts/main.gd" id="2_main"]
-[ext_resource type="Script" path="res://scripts/spawner.gd" id="3_spawner"]
-[ext_resource type="Script" path="res://scripts/bullets.gd" id="4_bullets"]
-[ext_resource type="Script" path="res://scripts/ground.gd" id="5_ground"]
-[ext_resource type="Script" path="res://scripts/hearts.gd" id="6_hearts"]
+[ext_resource type="Script" path="res://scripts/world.gd" id="3_world"]
+[ext_resource type="Script" path="res://scripts/projectiles.gd" id="4_projectiles"]
+[ext_resource type="Script" path="res://scripts/enemy_spawner.gd" id="5_spawner"]
+[ext_resource type="Script" path="res://scripts/hud.gd" id="6_hud"]
+[ext_resource type="Script" path="res://scripts/hazards.gd" id="7_hazards"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("2_main")
 
-[node name="Ground" type="Node2D" parent="."]
-script = ExtResource("5_ground")
+[node name="World" type="Node2D" parent="."]
+script = ExtResource("3_world")
 
-[node name="Spawner" type="Node" parent="."]
-script = ExtResource("3_spawner")
+[node name="Hazards" type="Node2D" parent="."]
+script = ExtResource("7_hazards")
+
+[node name="Bags" type="Node2D" parent="."]
+
+[node name="Portals" type="Node2D" parent="."]
+
+[node name="Enemies" type="Node2D" parent="."]
 
 [node name="Player" parent="." instance=ExtResource("1_player")]
-position = Vector2(480, 270)
 
-[node name="Bullets" type="Node2D" parent="."]
-script = ExtResource("4_bullets")
+[node name="PlayerShots" type="Node2D" parent="."]
+script = ExtResource("4_projectiles")
+targets_player = false
 
-[node name="UI" type="CanvasLayer" parent="."]
+[node name="EnemyShots" type="Node2D" parent="."]
+script = ExtResource("4_projectiles")
 
-[node name="TimeBar" type="ProgressBar" parent="UI"]
-anchor_left = 0.5
-anchor_right = 0.5
-offset_left = -250.0
-offset_top = 12.0
-offset_right = 250.0
-offset_bottom = 30.0
-grow_horizontal = 2
-show_percentage = false
-max_value = 30.0
-value = 30.0
+[node name="Spawner" type="Node" parent="."]
+script = ExtResource("5_spawner")
 
-[node name="MessageLabel" type="Label" parent="UI"]
-visible = false
-anchor_left = 0.5
-anchor_right = 0.5
-anchor_top = 0.5
-anchor_bottom = 0.5
-offset_left = -300.0
-offset_right = 300.0
-offset_top = -25.0
-offset_bottom = 25.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 6
-theme_override_font_sizes/font_size = 36
-horizontal_alignment = 1
-text = ""
-
-[node name="MessageTimer" type="Timer" parent="UI"]
-wait_time = 1.5
-one_shot = true
-
-[node name="Hearts" type="Control" parent="UI"]
-layout_mode = 0
-offset_left = 16.0
-offset_top = 12.0
-offset_right = 200.0
-offset_bottom = 40.0
-script = ExtResource("6_hearts")
-
-[node name="LevelLabel" type="Label" parent="UI"]
-offset_left = 16.0
-offset_top = 42.0
-offset_right = 200.0
-offset_bottom = 74.0
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 5
-theme_override_font_sizes/font_size = 24
-text = "Level 1"
-
-[node name="PowerupsLabel" type="Label" parent="UI"]
-offset_left = 16.0
-offset_top = 76.0
-offset_right = 250.0
-offset_bottom = 330.0
-theme_override_colors/font_color = Color(1, 0.9, 0.5, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 4
-theme_override_font_sizes/font_size = 18
-text = ""
+[node name="HUD" type="CanvasLayer" parent="."]
+script = ExtResource("6_hud")

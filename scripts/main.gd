@@ -1,186 +1,240 @@
 extends Node2D
+## Wires the game together: player, enemies, projectiles, hazards, loot and
+## HUD. Handles XP and loot from kills, moving items between bags, inventory
+## and equipment, travelling between the realm and the Chambers of Xeric,
+## and permadeath (a new Barbarian starts from scratch).
 
-const BOSSES := [
-	preload("res://scripts/bosses/bear.gd"),
-	preload("res://scripts/bosses/dark_barbarian.gd"),
-	preload("res://scripts/bosses/serpent.gd"),
-]
+const RAID_PORTAL_LIFETIME := 60.0
 
-const BACKGROUND_COLOR := Color(0.08, 0.06, 0.12)
-const LEVEL_DURATION := 15.0
-const BOSS_LEVEL_DURATION := LEVEL_DURATION * 1.5
-
-@onready var spawner: Node = $Spawner
+@onready var bags: Node2D = $Bags
+@onready var portals: Node2D = $Portals
+@onready var enemies: Node2D = $Enemies
 @onready var player: Node2D = $Player
-@onready var bullets: Node2D = $Bullets
-@onready var time_bar: ProgressBar = $UI/TimeBar
-@onready var message_label: Label = $UI/MessageLabel
-@onready var message_timer: Timer = $UI/MessageTimer
-@onready var hearts: Control = $UI/Hearts
-@onready var level_label: Label = $UI/LevelLabel
-@onready var powerups_label: Label = $UI/PowerupsLabel
+@onready var player_shots: Node2D = $PlayerShots
+@onready var enemy_shots: Node2D = $EnemyShots
+@onready var hazards: Node2D = $Hazards
+@onready var spawner: Node = $Spawner
+@onready var hud: CanvasLayer = $HUD
 
-var boss_level := GameState.is_boss_level(GameState.level)
-var boss: Boss
-var time_left := BOSS_LEVEL_DURATION if boss_level else LEVEL_DURATION
-var shield_charges := 0
-var level_over := false
+var camera: Camera2D
+var raid: Raid
+var current_bag: LootBag
+var shown_bag_size := -1
 
 
 func _ready() -> void:
-	RenderingServer.set_default_clear_color(BACKGROUND_COLOR)
-	message_timer.timeout.connect(_on_message_timer_timeout)
+	RenderingServer.set_default_clear_color(Color(0.05, 0.05, 0.06))
+	Input.set_default_cursor_shape(Input.CURSOR_CROSS)
 
-	spawner.setup(GameState.level, bullets, player)
-	bullets.player = player
-	bullets.player_hit.connect(_on_player_hit)
-	shield_charges = GameState.stacks("shield")
+	player.shots = player_shots
+	player.died.connect(_on_player_died)
+	player.leveled_up.connect(_on_player_leveled_up)
+	camera = Camera2D.new()
+	camera.position_smoothing_enabled = true
+	camera.position_smoothing_speed = 8.0
+	player.add_child(camera)
 
-	time_bar.max_value = time_left
-	time_bar.value = time_left
-	update_hud()
-	show_message("BOSS FIGHT!" if boss_level else "Level %d" % GameState.level)
-	await get_tree().create_timer(1.0, false).timeout
-	spawner.start()
-	if boss_level:
-		boss = _pick_boss().new()
-		boss.setup(GameState.level, bullets, player)
-		boss.touched_player.connect(_on_player_hit)
-		add_child(boss)
-		move_child(boss, bullets.get_index())
-		show_message("%s appears!" % boss.display_name)
+	enemy_shots.player = player
+	enemy_shots.player_hit.connect(player.take_damage)
+	hazards.player = player
 
+	spawner.enemy_parent = enemies
+	spawner.shots = enemy_shots
+	spawner.player = player
+	spawner.enemy_died.connect(_on_enemy_died)
+	spawner.boss_spawned.connect(_on_boss_spawned)
 
-## Random boss, never the same one as last time.
-func _pick_boss() -> GDScript:
-	var options := range(BOSSES.size())
-	options.erase(GameState.last_boss)
-	GameState.last_boss = options.pick_random()
-	return BOSSES[GameState.last_boss]
+	hud.bind_player(player)
+	hud.slot_clicked.connect(_on_slot_clicked)
+	hud.restart_requested.connect(get_tree().reload_current_scene)
+
+	_enter_realm()
+	hud.show_message("Welcome to Lumbridge. Danger grows the farther you go.", 5.0)
 
 
-func _physics_process(delta: float) -> void:
-	if level_over or not spawner.active:
-		return
-	time_left -= delta
-	time_bar.value = time_left
-	if time_left <= 0.0:
-		complete_level()
+func _process(_delta: float) -> void:
+	var bag := _bag_under_player()
+	var bag_size := bag.items.size() if bag else -1
+	if bag != current_bag or bag_size != shown_bag_size:
+		current_bag = bag
+		shown_bag_size = bag_size
+		hud.show_bag(bag)
+
+	if player.is_alive():
+		for portal: Portal in get_tree().get_nodes_in_group("portals"):
+			if not portal.is_queued_for_deletion() and portal.position.distance_to(player.position) < Portal.RADIUS:
+				_take_portal(portal)
+				break
+
+	hud.area_name = raid.room_name_at(player.position) if raid else World.zone_name(player.position)
 
 
-func _on_player_hit() -> void:
-	if level_over:
-		return
-	if shield_charges > 0:
-		shield_charges -= 1
-		update_hud()
-		show_message("Shield blocked a hit!")
-		player.make_invulnerable(1.5)
-		return
-	GameState.health -= 1
-	update_hud()
-	if GameState.health > 0:
-		player.make_invulnerable(1.5)
-		return
-
-	level_over = true
-	player.hide()
-	show_message("You Died on level %d" % GameState.level)
-	get_tree().paused = true
-	await get_tree().create_timer(2.0).timeout
-	get_tree().paused = false
-	GameState.reset_run()
-	get_tree().reload_current_scene()
+## F11 switches between full screen and a window.
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F11:
+		var fullscreen := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if fullscreen else DisplayServer.WINDOW_MODE_FULLSCREEN)
 
 
-func complete_level() -> void:
-	level_over = true
-	spawner.stop()
-	bullets.clear_all()
-	if boss:
-		boss.queue_free()
-	show_message("Boss survived!" if boss_level else "Level %d survived!" % GameState.level)
-	await get_tree().create_timer(1.0).timeout
-	if boss_level:
-		show_powerup_choice()
+# --- Travelling ---
+
+func _take_portal(portal: Portal) -> void:
+	var destination := portal.destination
+	portal.queue_free()
+	if destination == "raid":
+		_enter_raid()
 	else:
-		GameState.level += 1
-		get_tree().reload_current_scene()
+		_enter_realm()
+		hud.show_message("You return to Lumbridge.", 3.0)
 
 
-func show_powerup_choice() -> void:
-	get_tree().paused = true
-	message_label.visible = false
-
-	var layer := CanvasLayer.new()
-	layer.layer = 10
-	layer.process_mode = Node.PROCESS_MODE_ALWAYS
-	add_child(layer)
-
-	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.6)
-	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	layer.add_child(dim)
-
-	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	layer.add_child(center)
-
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 24)
-	center.add_child(column)
-
-	var title := Label.new()
-	title.text = "Level %d complete! Choose a power-up" % GameState.level
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 32)
-	column.add_child(title)
-
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 20)
-	column.add_child(row)
-
-	var buttons: Array[Button] = []
-	for id in GameState.random_choices(3):
-		var info: Dictionary = GameState.POWERUPS[id]
-		var button := Button.new()
-		button.custom_minimum_size = Vector2(220, 140)
-		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		button.text = "%s\n\n%s" % [info.name, info.desc]
-		if GameState.stacks(id) > 0:
-			button.text += "\n(have %d)" % GameState.stacks(id)
-		button.add_theme_font_size_override("font_size", 20)
-		button.pressed.connect(_on_powerup_chosen.bind(id))
-		row.add_child(button)
-		buttons.append(button)
-	buttons[0].grab_focus()
+func _enter_realm() -> void:
+	if raid:
+		raid.tear_down()
+		raid = null
+	_clear_combat()
+	spawner.paused = false
+	player.position = World.CENTER + Vector2(0, 60)
+	var realm: Array[Rect2] = [World.bounds()]
+	player.walkable = realm
+	_set_camera_limits(Rect2(Vector2.ZERO, World.SIZE))
 
 
-func _on_powerup_chosen(id: String) -> void:
-	GameState.add_powerup(id)
-	GameState.level += 1
-	get_tree().paused = false
-	get_tree().reload_current_scene()
+func _enter_raid() -> void:
+	_clear_combat()
+	spawner.paused = true
+	hud.boss = null
+	raid = Raid.new()
+	add_child(raid)
+	move_child(raid, $World.get_index() + 1)
+	raid.build(player, enemy_shots, enemies)
+	raid.enemy_died.connect(_on_enemy_died)
+	raid.walkable_changed.connect(func(rects: Array[Rect2]): player.walkable = rects)
+	raid.announce.connect(func(text: String): hud.show_message(text, 3.0))
+	raid.chest_opened.connect(_on_raid_chest_opened)
+	player.position = raid.entrance()
+	player.walkable = raid.walkable()
+	_set_camera_limits(raid.bounds())
+	hud.show_message("You enter the Chambers of Xeric...", 3.0)
 
 
-func update_hud() -> void:
-	hearts.set_health(GameState.health, GameState.max_health())
-	level_label.text = "Level %d - BOSS" % GameState.level if boss_level else "Level %d" % GameState.level
-	var lines: Array[String] = []
-	for id in GameState.powerups:
-		var count := GameState.stacks(id)
-		var powerup_name: String = GameState.POWERUPS[id].name
-		lines.append(powerup_name if count == 1 else "%s x%d" % [powerup_name, count])
-	if GameState.stacks("shield") > 0:
-		lines.append("Shield charges: %d" % shield_charges)
-	powerups_label.text = "\n".join(lines)
+func _clear_combat() -> void:
+	enemy_shots.clear_all()
+	player_shots.clear_all()
+	hazards.clear_all()
 
 
-func show_message(text: String) -> void:
-	message_label.text = text
-	message_label.visible = true
-	message_timer.start()
+func _set_camera_limits(rect: Rect2) -> void:
+	camera.limit_left = int(rect.position.x)
+	camera.limit_top = int(rect.position.y)
+	camera.limit_right = int(rect.end.x)
+	camera.limit_bottom = int(rect.end.y)
+	camera.reset_smoothing()
 
 
-func _on_message_timer_timeout() -> void:
-	message_label.visible = false
+func _on_raid_chest_opened(pos: Vector2, loot: Array) -> void:
+	_spawn_bag(pos, loot)
+	var purple := loot.any(func(item): return item.tier == Items.UT)
+	hud.show_message("A purple! %s" % loot[0].name if purple else "The chest holds Rune and Dragon gear.", 4.0)
+	var exit := Portal.new()
+	exit.label = "Exit to Lumbridge"
+	exit.destination = "realm"
+	exit.color = Color(0.4, 0.8, 1.0)
+	exit.position = pos + Vector2(120, 0)
+	portals.add_child(exit)
+
+
+# --- Combat results ---
+
+func _on_enemy_died(enemy: Enemy) -> void:
+	player.add_xp(enemy.xp)
+	DamageText.spawn(enemies, enemy.position + Vector2(0, -enemy.radius - 22), "+%d XP" % enemy.xp, Color(0.5, 1, 0.5), 12)
+	if not enemy.drops_loot:
+		return
+	var drops := Items.roll_boss_drop(enemy.display_name) if enemy.is_boss else Items.roll_monster_drop(enemy.tier)
+	if not drops.is_empty():
+		_spawn_bag(enemy.position, drops)
+	if enemy.is_boss:
+		hud.show_message("%s has been slain! A portal to the Chambers of Xeric opens." % enemy.display_name, 4.0)
+		var portal := Portal.new()
+		portal.label = "Chambers of Xeric"
+		portal.lifetime = RAID_PORTAL_LIFETIME
+		portal.position = enemy.position + Vector2(0, -70)
+		portals.add_child(portal)
+
+
+func _on_boss_spawned(boss: Enemy) -> void:
+	hud.boss = boss
+	hud.show_message("%s has appeared in %s!" % [boss.display_name, World.zone_name(boss.position)], 4.0)
+
+
+func _on_player_leveled_up(new_level: int) -> void:
+	DamageText.spawn(self, player.position + Vector2(0, -44), "LEVEL UP!", Color(1, 0.9, 0.3), 18)
+	if new_level >= 20:
+		hud.show_message("Level 20! Now find better gear.", 3.0)
+
+
+func _on_player_died(killer: String) -> void:
+	player.hide()
+	hud.show_death(killer, player.level)
+
+
+# --- Items ---
+
+func _bag_under_player() -> LootBag:
+	var nearest: LootBag = null
+	var nearest_distance := LootBag.PICKUP_RADIUS
+	for bag: LootBag in get_tree().get_nodes_in_group("loot_bags"):
+		if bag.is_queued_for_deletion():
+			continue
+		var d := bag.position.distance_to(player.position)
+		if d < nearest_distance:
+			nearest = bag
+			nearest_distance = d
+	return nearest
+
+
+func _on_slot_clicked(slot: ItemSlot, button: int) -> void:
+	if not player.is_alive() or slot.item == null:
+		return
+	var right := button == MOUSE_BUTTON_RIGHT
+	match slot.group:
+		"inventory":
+			if right:
+				_drop(player.take_from_inventory(slot.key))
+			else:
+				player.equip_from_inventory(slot.key)
+		"equip":
+			if right:
+				var item: Dictionary = player.equipment[slot.key]
+				player.equipment[slot.key] = null
+				player.hp = minf(player.hp, player.max_hp())
+				player.changed.emit()
+				_drop(item)
+			elif not player.unequip(slot.key):
+				hud.show_message("Inventory full", 1.2)
+		"bag":
+			if current_bag == null:
+				return
+			if player.first_free_slot() == -1:
+				hud.show_message("Inventory full", 1.2)
+				return
+			player.add_to_inventory(current_bag.take(slot.key))
+	shown_bag_size = -2  # force the bag panel to refresh
+
+
+## Put an item on the ground: into the bag underfoot if it has room, else a new bag.
+func _drop(item: Dictionary) -> void:
+	if current_bag and current_bag.items.size() < LootBag.CAPACITY:
+		current_bag.items.append(item)
+		current_bag.time_left = LootBag.LIFETIME
+		current_bag.queue_redraw()
+	else:
+		_spawn_bag(player.position, [item])
+
+
+func _spawn_bag(pos: Vector2, items: Array) -> void:
+	var bag := LootBag.new()
+	bag.position = pos
+	bag.items = items
+	bags.add_child(bag)
