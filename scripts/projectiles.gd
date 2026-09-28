@@ -13,7 +13,7 @@ const ROCK_SHAPES := 4
 const OUTLINE := Color(0.16, 0.13, 0.1)
 const HANDLE := Color(0.5, 0.32, 0.15)
 
-enum Style { ROCK, AXE, ARROW, MAUL, CLAW, ORB }
+enum Style { ROCK, AXE, ARROW, MAUL, CLAW, ORB, BLADE }
 ## The player's weapons are drawn this much bigger than their base art.
 const PLAYER_SHOT_SCALE := 1.35
 
@@ -88,9 +88,9 @@ func _physics_process(delta: float) -> void:
 				_remove(i)
 		else:
 			for enemy in enemies:
-				if enemy.is_active() and enemy.touches(positions[i], radii[i]):
+				if enemy.can_be_hit_by_player() and enemy.touches(positions[i], radii[i]):
 					enemy.take_damage(damages[i])
-					if not enemy.invulnerable:
+					if not enemy.invulnerable or enemy.player_is_god():
 						enemy_hit.emit(damages[i])
 					_remove(i)
 					break
@@ -137,6 +137,8 @@ func _draw() -> void:
 				_draw_maul(i)
 			Style.CLAW:
 				_draw_claw(i)
+			Style.BLADE:
+				_draw_blade(i)
 			Style.ORB:
 				_draw_orb(i)
 	draw_set_transform(Vector2.ZERO)
@@ -188,7 +190,18 @@ func _draw_rock(i: int) -> void:
 
 ## A spinning throwing axe; the blade takes the weapon's tier colour.
 func _draw_axe(i: int) -> void:
-	draw_set_transform(positions[i], angles[i], Vector2.ONE * PLAYER_SHOT_SCALE)
+	# Heavy axes (bigger hit area) are drawn bigger too.
+	draw_set_transform(positions[i], angles[i], Vector2.ONE * PLAYER_SHOT_SCALE * maxf(radii[i] / 12.0, 1.0))
 	draw_line(Vector2(-9, 0), Vector2(7, 0), HANDLE, 2.5)
 	draw_colored_polygon(PackedVector2Array([Vector2(3, -2), Vector2(9, -8), Vector2(12, 0), Vector2(9, 8), Vector2(3, 2)]), OUTLINE)
 	draw_colored_polygon(PackedVector2Array([Vector2(4, -1.5), Vector2(9, -6.5), Vector2(11, 0), Vector2(9, 6.5), Vector2(4, 1.5)]), colors[i])
+
+
+## A spinning godsword: long blade, crossguard and a gem in the hilt.
+func _draw_blade(i: int) -> void:
+	draw_set_transform(positions[i], angles[i], Vector2.ONE * PLAYER_SHOT_SCALE * maxf(radii[i] / 12.0, 1.0))
+	draw_colored_polygon(PackedVector2Array([Vector2(-4, -2.5), Vector2(16, -2.5), Vector2(21, 0), Vector2(16, 2.5), Vector2(-4, 2.5)]), OUTLINE)
+	draw_colored_polygon(PackedVector2Array([Vector2(-3, -1.5), Vector2(16, -1.5), Vector2(19.5, 0), Vector2(16, 1.5), Vector2(-3, 1.5)]), Color(0.85, 0.87, 0.92))
+	draw_line(Vector2(-4, -7), Vector2(-4, 7), colors[i], 3.0)
+	draw_line(Vector2(-12, 0), Vector2(-4, 0), HANDLE, 3.0)
+	draw_circle(Vector2(-4, 0), 2.2, colors[i].lightened(0.3))

@@ -309,3 +309,7 @@ func knock_back(offset: Vector2) -> void:
 func cycle_dev_mode() -> String:
 	dev_mode = (dev_mode + 1) % DEV_MODE_NAMES.size()
 	return DEV_MODE_NAMES[dev_mode]
+
+
+func is_god_mode() -> bool:
+	return dev_mode == DevMode.GOD

@@ -38,6 +38,12 @@ func set_kind(new_kind: String) -> void:
 		move_speed = 115.0
 
 
+## Different distances and circling directions keep the three from bunching up.
+func _on_setup() -> void:
+	preferred_range = {"melee": 60.0, "ranged": 320.0, "magic": 210.0}[kind]
+	orbit_dir = 1.0 if kind == "ranged" else -1.0
+
+
 func _attacks() -> Array:
 	match kind:
 		"melee":

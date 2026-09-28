@@ -49,6 +49,8 @@ var untargetable := false
 var invulnerable := false
 ## Projectiles.Style used by shoot() (rocks by default).
 var projectile_style := 0
+## If set (raid rooms), the enemy is kept inside this rectangle.
+var bounds := Rect2()
 
 var tier := 0
 ## 0 Lumbridge, 1 God Wars, 2 Wilderness.
@@ -103,6 +105,16 @@ func is_active() -> bool:
 	return hp > 0.0 and not untargetable
 
 
+## Can the player's shots hit this right now? God mode hits through shields
+## and untargetable phases.
+func can_be_hit_by_player() -> bool:
+	return is_active() or (hp > 0.0 and player_is_god())
+
+
+func player_is_god() -> bool:
+	return player != null and player.is_god_mode()
+
+
 func is_attacking() -> bool:
 	return rest_timer <= 0.0 and attack_timer > 0.0
 
@@ -112,9 +124,9 @@ func touches(point: Vector2, other_radius: float) -> bool:
 
 
 func take_damage(amount: float) -> void:
-	if not is_active():
+	if not can_be_hit_by_player():
 		return
-	if invulnerable:
+	if invulnerable and not player_is_god():
 		DamageText.spawn(get_parent(), position + Vector2(0, -radius - 8), "IMMUNE", Color(0.6, 0.85, 1.0))
 		return
 	hp -= amount
@@ -128,7 +140,7 @@ func take_damage(amount: float) -> void:
 
 func _physics_process(delta: float) -> void:
 	var to_player := position.distance_to(player.position)
-	if to_player > SLEEP_DISTANCE or not player.is_alive():
+	if hp <= 0.0 or to_player > SLEEP_DISTANCE or not player.is_alive():
 		return
 	time += delta
 	flash_timer -= delta
@@ -146,6 +158,9 @@ func _physics_process(delta: float) -> void:
 		calm_timer = CALM_TIME
 		target = home
 	_move(delta)
+	if bounds.has_area():
+		var margin := Vector2.ONE * minf(radius, minf(bounds.size.x, bounds.size.y) * 0.5)
+		position = position.clamp(bounds.position + margin, bounds.end - margin)
 
 	if contact_damage > 0.0 and contact_timer <= 0.0 and not untargetable and touches(player.position, player.hitbox_radius):
 		player.take_damage(contact_damage, display_name)
@@ -258,6 +273,9 @@ func hazards() -> Node2D:
 func summon(add: Enemy, pos: Vector2) -> Enemy:
 	add.position = pos
 	add.setup(tier, shots, player, realm)
+	add.bounds = bounds
+	if bounds.has_area():
+		add.position = add.position.clamp(bounds.position + Vector2.ONE * add.radius, bounds.end - Vector2.ONE * add.radius)
 	if is_in_group("raid_enemies"):
 		add.add_to_group("raid_enemies")
 		add.leash_range = INF

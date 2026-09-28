@@ -82,7 +82,11 @@ var rooms: Array[Dictionary] = []
 var corridors: Array[Rect2] = []
 var chest_opened_already := false
 var chest_had_purple := false
+## Rolled the moment the final boss dies, so a purple shows before opening.
+var chest_loot: Array = []
 var time := 0.0
+## Room the next spawned enemies are confined to.
+var spawn_bounds := Rect2()
 
 
 func build(id: String, target_player: Node2D, shot_layer: Node2D, enemy_layer: Node2D) -> void:
@@ -181,6 +185,7 @@ func _physics_process(delta: float) -> void:
 				if room.rect.grow(-40).has_point(player.position):
 					_start(room)
 			"fighting":
+				_separate(room)
 				match room.kind:
 					"vanguards":
 						_balance_vanguards(room)
@@ -198,6 +203,7 @@ func _physics_process(delta: float) -> void:
 
 func _start(room: Dictionary) -> void:
 	room.state = "fighting"
+	spawn_bounds = room.rect.grow(-14) if room.kind == "olm" else _floor(room)
 	var rect: Rect2 = room.rect
 	var c := rect.get_center()
 	match room.kind:
@@ -278,8 +284,10 @@ func _clear(room: Dictionary) -> void:
 	get_tree().get_first_node_in_group("hazards").clear_all()
 	walkable_changed.emit(walkable())
 	var final_room: bool = room == rooms[-2]
+	if final_room:
+		_roll_chest()
 	announce.emit("%s defeated!" % ROOM_NAMES[room.kind] if not final_room
-			else "%s is conquered! Claim your reward." % raid_name())
+			else "%s is conquered! %s" % [raid_name(), "A purple light shines above the chest!" if chest_had_purple else "Claim your reward."])
 
 
 # --- Chambers of Xeric mechanics ---
@@ -364,6 +372,9 @@ func _add(enemy: Enemy, pos: Vector2) -> Enemy:
 	enemy.position = pos
 	enemy.setup(RAID_TIER, shots, player, realm)
 	enemy.leash_range = INF  # sealed in the room anyway
+	enemy.bounds = spawn_bounds
+	if spawn_bounds.has_area():
+		enemy.position = enemy.position.clamp(spawn_bounds.position + Vector2.ONE * enemy.radius, spawn_bounds.end - Vector2.ONE * enemy.radius)
 	enemy.add_to_group("raid_enemies")
 	enemy.died.connect(func(e: Enemy): enemy_died.emit(e))
 	enemy_parent.add_child(enemy)
@@ -372,8 +383,9 @@ func _add(enemy: Enemy, pos: Vector2) -> Enemy:
 
 func _open_chest() -> void:
 	chest_opened_already = true
-	var loot := Items.raid_chest_loot(raid_id, realm)
-	chest_had_purple = loot.any(func(item): return item.tier == Items.UT)
+	if chest_loot.is_empty():
+		_roll_chest()
+	var loot := chest_loot
 	chest_opened.emit(chest_position() + Vector2(0, 50), loot)
 
 
@@ -436,9 +448,13 @@ func _draw_room(room: Dictionary, floor_color: Color) -> void:
 
 
 func _draw_chest(c: Vector2) -> void:
-	if chest_opened_already and chest_had_purple:
-		# The famous purple light.
-		draw_rect(Rect2(c + Vector2(-18, -400), Vector2(36, 400)), Color(0.8, 0.3, 1.0, 0.25 + 0.1 * sin(time * 5.0)))
+	if chest_had_purple:
+		# The famous purple light, visible as soon as the final boss falls.
+		var pulse := 0.1 * sin(time * 5.0)
+		draw_rect(Rect2(c + Vector2(-34, -420), Vector2(68, 420)), Color(0.8, 0.3, 1.0, 0.18 + pulse * 0.5))
+		draw_rect(Rect2(c + Vector2(-14, -420), Vector2(28, 420)), Color(0.85, 0.4, 1.0, 0.45 + pulse))
+		draw_rect(Rect2(c + Vector2(-4, -420), Vector2(8, 420)), Color(1, 0.85, 1.0, 0.7 + pulse))
+		draw_circle(c + Vector2(0, -6), 40.0, Color(0.8, 0.3, 1.0, 0.25 + pulse))
 	var wood := Color(0.45, 0.28, 0.12)
 	draw_rect(Rect2(c + Vector2(-26, -8), Vector2(52, 28)), wood)
 	draw_rect(Rect2(c + Vector2(-26, -8), Vector2(52, 28)), Color(0.85, 0.7, 0.3), false, 2.0)
@@ -448,3 +464,25 @@ func _draw_chest(c: Vector2) -> void:
 	if not chest_opened_already:
 		draw_string(ThemeDB.fallback_font, c + Vector2(-80, -40), "Walk here to claim",
 				HORIZONTAL_ALIGNMENT_CENTER, 160, 13, Color(1, 0.9, 0.6))
+
+
+## Keep a room's monsters from stacking on top of each other: any two that
+## overlap are nudged apart.
+func _separate(room: Dictionary) -> void:
+	var movers: Array = get_tree().get_nodes_in_group("raid_enemies").filter(func(e):
+		return is_instance_valid(e) and e.move_speed > 0.0 and room.rect.has_point(e.position))
+	for i in movers.size():
+		for j in range(i + 1, movers.size()):
+			var a: Enemy = movers[i]
+			var b: Enemy = movers[j]
+			var gap := b.position - a.position
+			var overlap := a.radius + b.radius - gap.length()
+			if overlap > 0.0:
+				var push := (gap.normalized() if gap.length() > 0.01 else Vector2.RIGHT.rotated(randf() * TAU)) * overlap * 0.5
+				a.position -= push
+				b.position += push
+
+
+func _roll_chest() -> void:
+	chest_loot = Items.raid_chest_loot(raid_id, realm)
+	chest_had_purple = chest_loot.any(func(item): return item.tier == Items.UT)

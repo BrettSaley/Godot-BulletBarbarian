@@ -36,7 +36,7 @@ func player_in_gaze() -> bool:
 
 
 func take_damage(amount: float) -> void:
-	if is_staring() and player_in_gaze() and is_active():
+	if is_staring() and player_in_gaze() and is_active() and not player_is_god():
 		player.take_damage(amount * 0.2, "Xarpus's reflected gaze")
 		DamageText.spawn(get_parent(), position + Vector2(0, -radius - 8), "REFLECTED", Color(1, 0.4, 0.4))
 		return
