@@ -51,6 +51,6 @@ func _draw() -> void:
 ## Purple and white bags pulse so good loot stands out.
 func _is_special() -> bool:
 	for item in items:
-		if item.tier >= 5:
+		if item.tier >= 7:
 			return true
 	return false

@@ -16,6 +16,11 @@ signal died(enemy: Enemy)
 const ATTACK_DURATION := 3.0
 ## Enemies farther than this from the player don't think at all.
 const SLEEP_DISTANCE := 1100.0
+## Per-realm power (Lumbridge, God Wars, Wilderness): later realms hit harder
+## and have far more health, to match their higher-tier gear.
+const REALM_HP := [1.0, 2.2, 4.5]
+const REALM_DAMAGE := [1.0, 1.6, 2.2]
+const REALM_XP := [1.0, 2.0, 3.0]
 ## After giving up a chase, a monster ignores the player this long.
 const CALM_TIME := 2.0
 
@@ -46,6 +51,8 @@ var invulnerable := false
 var projectile_style := 0
 
 var tier := 0
+## 0 Lumbridge, 1 God Wars, 2 Wilderness.
+var realm := 0
 ## 0-1 blend used by attack patterns to get denser and faster.
 var difficulty := 0.0
 
@@ -67,16 +74,17 @@ var time := 0.0
 var orbit_dir := 1.0
 
 
-func setup(zone_tier: int, shot_layer: Node2D, target_player: Node2D) -> void:
+func setup(zone_tier: int, shot_layer: Node2D, target_player: Node2D, realm_index := 0) -> void:
 	tier = zone_tier
+	realm = realm_index
 	shots = shot_layer
 	player = target_player
 	difficulty = clampf(tier / 6.0, 0.0, 1.0)
-	max_hp *= 1.0 + 0.6 * tier
+	max_hp *= (1.0 + 0.6 * tier) * REALM_HP[realm]
 	hp = max_hp
-	xp = roundi(xp * (1.0 + 0.6 * tier))
-	bullet_damage *= 1.0 + 0.25 * tier
-	contact_damage *= 1.0 + 0.25 * tier
+	xp = roundi(xp * (1.0 + 0.6 * tier) * REALM_XP[realm])
+	bullet_damage *= (1.0 + 0.25 * tier) * REALM_DAMAGE[realm]
+	contact_damage *= (1.0 + 0.25 * tier) * REALM_DAMAGE[realm]
 	move_speed *= 1.0 + 0.05 * tier
 	if is_boss:
 		leash_range = maxf(leash_range, 900.0)
@@ -243,3 +251,15 @@ func draw_health_bar(offset_y: float) -> void:
 ## Ground hazard layer (telegraphed blasts, acid pools, fire walls).
 func hazards() -> Node2D:
 	return get_tree().get_first_node_in_group("hazards")
+
+
+## Summon an add (same tier and realm) next to this enemy. Adds summoned in a
+## raid are cleaned up with the room.
+func summon(add: Enemy, pos: Vector2) -> Enemy:
+	add.position = pos
+	add.setup(tier, shots, player, realm)
+	if is_in_group("raid_enemies"):
+		add.add_to_group("raid_enemies")
+		add.leash_range = INF
+	get_parent().add_child(add)
+	return add

@@ -343,9 +343,12 @@ func _draw_boss_arrow() -> void:
 			HORIZONTAL_ALIGNMENT_CENTER, 120, 13, color)
 
 
-func set_dev_mode(on: bool) -> void:
+## Shows which dev mode is on (hidden in Normal).
+func set_dev_mode(mode: int, mode_name: String) -> void:
 	if dev_label == null:
-		dev_label = _label("DEV MODE  (10x damage, press 9 to turn off)", 14, Color(1, 0.4, 0.9))
+		dev_label = _label("", 14, Color(1, 0.4, 0.9))
 		dev_label.position = Vector2(12, 32)
 		add_child(dev_label)
-	dev_label.visible = on
+	dev_label.text = "DEV - %s  (9 to change)" % mode_name
+	dev_label.add_theme_color_override("font_color", Color(1, 0.85, 0.2) if mode == 2 else Color(1, 0.4, 0.9))
+	dev_label.visible = mode != 0

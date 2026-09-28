@@ -30,9 +30,9 @@ func rect_blast(rect: Rect2, delay: float, damage: float, source: String, color 
 			"damage": damage, "source": source, "color": color, "flash": 0.0})
 
 
-func pool(pos: Vector2, radius: float, lifetime: float, dps: float, source: String, color := Color(0.4, 0.8, 0.2)) -> void:
+func pool(pos: Vector2, radius: float, lifetime: float, dps: float, source: String, color := Color(0.4, 0.8, 0.2), slow := 0.0) -> void:
 	pools.append({"shape": "circle", "pos": pos, "radius": radius, "time": lifetime, "lifetime": lifetime,
-			"dps": dps, "source": source, "color": color, "tick": 0.0})
+			"dps": dps, "source": source, "color": color, "tick": 0.0, "slow": slow})
 
 
 func rect_pool(rect: Rect2, lifetime: float, dps: float, source: String, color := Color(1, 0.45, 0.1)) -> void:
@@ -78,7 +78,10 @@ func _physics_process(delta: float) -> void:
 		p.tick -= delta
 		if p.tick <= 0.0 and alive and _inside(p, player.position, player.hitbox_radius * 0.5):
 			p.tick = TICK
-			player.take_damage(p.dps * TICK, p.source, true)
+			if p.dps > 0.0:
+				player.take_damage(p.dps * TICK, p.source, true)
+			if p.get("slow", 0.0) > 0.0:
+				player.apply_slow(p.slow)
 	queue_redraw()
 
 

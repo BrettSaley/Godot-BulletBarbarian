@@ -6,6 +6,8 @@ extends Node2D
 ## (hit anything in the "enemies" group).
 
 signal player_hit(damage: float, source: String)
+## Emitted by the player's shots when they damage an enemy.
+signal enemy_hit(damage: float)
 
 const ROCK_SHAPES := 4
 const OUTLINE := Color(0.16, 0.13, 0.1)
@@ -88,6 +90,8 @@ func _physics_process(delta: float) -> void:
 			for enemy in enemies:
 				if enemy.is_active() and enemy.touches(positions[i], radii[i]):
 					enemy.take_damage(damages[i])
+					if not enemy.invulnerable:
+						enemy_hit.emit(damages[i])
 					_remove(i)
 					break
 		i -= 1

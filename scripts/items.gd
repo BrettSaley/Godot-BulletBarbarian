@@ -2,14 +2,18 @@ class_name Items
 extends RefCounted
 ## Item definitions and loot rolls. Items are plain Dictionaries:
 ##   {name, slot ("weapon" | "ability" | "armor" | "ring"), tier, ...stats}
-## Tiers follow OSRS metals: Bronze (0) to Dragon (6). Bronze is starting gear
-## only and never drops. Open-world monsters drop Iron-Adamant (better further
-## from Lumbridge); world bosses and the Chambers of Xeric drop Rune/Dragon and
-## untiered uniques (UT, white bags).
+## Tiers run from Bronze (0) to Torva (10). Bronze is starting gear only and
+## never drops. Each realm drops its own band of tiers:
+##   Lumbridge   monsters Iron-Adamant,    bosses Adamant-Dragon,  CoX chest Dragon
+##   God Wars    monsters Rune-Crystal,    bosses Crystal-Blessed, ToB chest Blessed
+##   Wilderness  monsters Crystal-Zaryte,  bosses Zaryte-Torva,    ToA chest Torva
+## Untiered uniques (UT, white bags) only come from raid chests, and each
+## raid's UTs beat all tiered gear from its own realm and the next.
 
-const TIER_NAMES := ["Bronze", "Iron", "Steel", "Mithril", "Adamant", "Rune", "Dragon"]
-const MAX_TIER := 6
-const UT := 7
+const TIER_NAMES := ["Bronze", "Iron", "Steel", "Mithril", "Adamant", "Rune", "Dragon",
+		"Crystal", "Blessed", "Zaryte", "Torva"]
+const MAX_TIER := 10
+const UT := 11
 const TIER_COLORS := [
 	Color(0.8, 0.52, 0.28),   # Bronze
 	Color(0.58, 0.58, 0.6),   # Iron
@@ -18,22 +22,38 @@ const TIER_COLORS := [
 	Color(0.35, 0.62, 0.38),  # Adamant
 	Color(0.35, 0.75, 0.85),  # Rune
 	Color(0.9, 0.22, 0.16),   # Dragon
+	Color(0.55, 0.95, 0.85),  # Crystal
+	Color(0.95, 0.85, 0.5),   # Blessed
+	Color(0.7, 0.4, 0.9),     # Zaryte
+	Color(0.55, 0.3, 0.2),    # Torva
 	Color(1, 1, 1),           # Untiered unique
 ]
-## Rings use OSRS gems instead of metals.
-const GEM_NAMES := ["Sapphire", "Emerald", "Ruby", "Diamond", "Dragonstone", "Onyx", "Zenyte"]
+## Rings use OSRS gems, then legendary rings past Zenyte.
+const GEM_NAMES := ["Sapphire", "Emerald", "Ruby", "Diamond", "Dragonstone", "Onyx", "Zenyte",
+		"Berserker", "Brimstone", "Venator", "Ultor"]
 const GEM_COLORS := [
 	Color(0.25, 0.4, 0.95), Color(0.25, 0.8, 0.35), Color(0.9, 0.2, 0.25), Color(0.92, 0.95, 1.0),
 	Color(0.7, 0.3, 0.9), Color(0.25, 0.22, 0.28), Color(1.0, 0.6, 0.2),
+	Color(0.85, 0.2, 0.2), Color(0.95, 0.45, 0.1), Color(0.45, 0.85, 0.35), Color(0.95, 0.9, 0.7),
 ]
 
-const WEAPON_DAMAGE := [[20, 35], [30, 50], [45, 70], [60, 90], [80, 115], [105, 145], [135, 180]]
-const ARMOR_DEFENSE := [2, 5, 8, 11, 14, 18, 22]
-const ARMOR_HP := [0, 10, 20, 30, 45, 60, 80]
+const WEAPON_DAMAGE := [[20, 35], [30, 50], [45, 70], [60, 90], [80, 115], [105, 145], [135, 180],
+		[165, 215], [195, 250], [230, 290], [270, 335]]
+const ARMOR_DEFENSE := [2, 5, 8, 11, 14, 18, 22, 26, 30, 34, 38]
+const ARMOR_HP := [0, 10, 20, 30, 45, 60, 80, 100, 120, 145, 170]
 const RING_STATS := ["hp", "mp", "attack", "defense", "speed", "dexterity", "vitality"]
 const STAT_LABELS := {
 	"hp": "HP", "mp": "MP", "attack": "Attack", "defense": "Defense",
 	"speed": "Speed", "dexterity": "Dexterity", "vitality": "Vitality",
+}
+
+## Tier bands each realm drops: [monster min, monster max, boss min, boss max, chest].
+const REALM_TIERS := [[1, 4, 4, 6, 6], [5, 7, 7, 8, 8], [7, 9, 9, 10, 10]]
+const PURPLE_CHANCE := 0.25
+const RAID_UNIQUES := {
+	"cox": ["twisted_bow", "elder_maul", "dragon_claws", "dinhs_bulwark", "ancestral_hat"],
+	"tob": ["scythe_of_vitur", "ghrazi_rapier", "sanguinesti_staff", "justiciar_chestguard", "avernic_defender"],
+	"toa": ["tumekens_shadow", "osmumtens_fang", "masori_body", "masori_mask", "lightbearer"],
 }
 
 ## RotMG-style bag colours: brown, pink, purple, then white for uniques.
@@ -46,7 +66,7 @@ static func weapon(tier: int) -> Dictionary:
 		"name": "%s Thrownaxe" % TIER_NAMES[tier], "slot": "weapon", "tier": tier,
 		"damage_min": WEAPON_DAMAGE[tier][0], "damage_max": WEAPON_DAMAGE[tier][1],
 		"shots": 2 if tier >= 5 else 1,
-		"range": 360.0 + tier * 20.0,
+		"range": 360.0 + mini(tier, 8) * 20.0,
 	}
 
 
@@ -55,7 +75,7 @@ static func helm(tier: int) -> Dictionary:
 	return {
 		"name": "%s Full Helm" % TIER_NAMES[tier], "slot": "ability", "tier": tier,
 		"stats": {"defense": tier / 2},
-		"warcry": {"duration": 3.0 + 0.5 * tier, "damage_bonus": 0.2 + 0.05 * tier, "speed_bonus": 0.2, "mp_cost": 40 + 5 * tier},
+		"warcry": {"duration": 3.0 + 0.4 * tier, "damage_bonus": 0.2 + 0.04 * tier, "speed_bonus": 0.2, "mp_cost": 40 + 4 * tier},
 	}
 
 
@@ -89,88 +109,104 @@ static func random_item(tier: int) -> Dictionary:
 	return ring(tier)
 
 
-## Open-world monster drops over the seven zones (0-6): Iron around Lumbridge,
-## Steel and Mithril through the middle, Adamant in the Deep Wilderness, with a
-## 25% chance of one tier better (never above Adamant).
-static func roll_monster_drop(zone_tier: int) -> Array:
+## Open-world monster drops: the realm's monster band, climbing across the
+## seven zones (0-6), with a 25% chance of one tier better.
+static func roll_monster_drop(zone_tier: int, realm := 0) -> Array:
 	if randf() > 0.3 + 0.03 * zone_tier:
 		return []
-	var tier := 1 + zone_tier / 2 + (1 if randf() < 0.25 else 0)
-	return [random_item(clampi(tier, 1, 4))]
+	var band: Array = REALM_TIERS[realm]
+	var span: int = band[1] - band[0]
+	var tier: int = band[0] + roundi(span * zone_tier / 6.0) + (1 if randf() < 0.25 else 0)
+	return [random_item(clampi(tier, band[0], band[1]))]
 
 
-## World boss drops: Rune/Dragon gear, plus a chance at that boss's unique.
-static func roll_boss_drop(boss_name: String) -> Array:
+## World boss drops: two or three items from the realm's boss band. World
+## bosses never drop uniques; those only come from raid chests.
+static func roll_boss_drop(realm := 0) -> Array:
+	var band: Array = REALM_TIERS[realm]
 	var drops := []
 	for i in randi_range(2, 3):
-		drops.append(random_item(randi_range(4, 6)))
-	var boss_uniques: Array = BOSS_UNIQUES.get(boss_name, [])
-	if not boss_uniques.is_empty() and randf() < 0.3:
-		drops.push_front(unique(boss_uniques.pick_random()))
+		drops.append(random_item(randi_range(band[2], band[3])))
 	return drops
 
 
-## The Chambers of Xeric chest: Rune/Dragon gear and a chance at a purple.
-static func raid_chest_loot() -> Array:
+## A raid chest: the realm's top tier, and a chance at one of that raid's
+## untiered uniques (the "purple").
+static func raid_chest_loot(raid_id: String, realm: int) -> Array:
 	var loot := []
 	for i in randi_range(2, 3):
-		loot.append(random_item(randi_range(5, 6)))
+		loot.append(random_item(REALM_TIERS[realm][4]))
 	if randf() < PURPLE_CHANCE:
-		loot.push_front(unique(COX_UNIQUES.pick_random()))
+		loot.push_front(unique(RAID_UNIQUES[raid_id].pick_random()))
 	return loot
 
 
-const PURPLE_CHANCE := 0.25
-const COX_UNIQUES := ["twisted_bow", "elder_maul", "dragon_claws", "dinhs_bulwark", "ancestral_hat"]
-const BOSS_UNIQUES := {
-	"Zulrah": ["toxic_blowpipe", "serpentine_helm"],
-	"Vorkath": ["dragonfire_shield", "vorkaths_head"],
-	"Giant Mole": ["mole_claws"],
-}
-
-
-## Untiered uniques from world bosses and the raid. Weapons change how the
-## barbarian attacks; helms change the Warcry.
+## Raid uniques. Weapons change how the barbarian attacks; helms change the
+## Warcry. Chambers of Xeric UTs outclass everything tiered up to Blessed,
+## Theatre of Blood UTs outclass Torva, and Tombs of Amascut UTs are the best.
 static func unique(id: String) -> Dictionary:
 	var item: Dictionary
 	match id:
+		# --- Chambers of Xeric ---
 		"twisted_bow":
 			item = {"name": "Twisted Bow", "slot": "weapon", "style": Projectiles.Style.ARROW,
-					"damage_min": 85, "damage_max": 120, "shots": 1, "range": 640.0, "speed": 820.0, "rate": 1.3,
+					"damage_min": 360, "damage_max": 440, "shots": 1, "range": 640.0, "speed": 820.0, "rate": 1.3,
 					"note": "Chambers of Xeric. Long range, fast arrows."}
 		"elder_maul":
 			item = {"name": "Elder Maul", "slot": "weapon", "style": Projectiles.Style.MAUL,
-					"damage_min": 280, "damage_max": 360, "shots": 1, "range": 300.0, "speed": 480.0, "rate": 0.45,
+					"damage_min": 1050, "damage_max": 1260, "shots": 1, "range": 300.0, "speed": 480.0, "rate": 0.45,
 					"note": "Chambers of Xeric. Slow, crushing blows."}
 		"dragon_claws":
 			item = {"name": "Dragon Claws", "slot": "weapon", "style": Projectiles.Style.CLAW,
-					"damage_min": 45, "damage_max": 60, "shots": 4, "spread": 0.07, "range": 320.0,
+					"damage_min": 115, "damage_max": 145, "shots": 4, "spread": 0.07, "range": 320.0,
 					"note": "Chambers of Xeric. Four slashes at once."}
 		"dinhs_bulwark":
-			item = {"name": "Dinh's Bulwark", "slot": "armor", "stats": {"defense": 28, "hp": 120, "speed": -3},
+			item = {"name": "Dinh's Bulwark", "slot": "armor", "stats": {"defense": 34, "hp": 160, "speed": -3},
 					"note": "Chambers of Xeric. A wall of dragon metal."}
 		"ancestral_hat":
-			item = {"name": "Ancestral Hat", "slot": "ability", "stats": {"mp": 60, "defense": 3},
-					"warcry": {"duration": 5.0, "damage_bonus": 0.4, "speed_bonus": 0.25, "mp_cost": 60, "heal": 120},
+			item = {"name": "Ancestral Hat", "slot": "ability", "stats": {"mp": 80, "defense": 5},
+					"warcry": {"duration": 6.0, "damage_bonus": 0.6, "speed_bonus": 0.3, "mp_cost": 60, "heal": 150},
 					"note": "Chambers of Xeric. Warcry also heals."}
-		"toxic_blowpipe":
-			item = {"name": "Toxic Blowpipe", "slot": "weapon", "style": Projectiles.Style.ARROW,
-					"damage_min": 30, "damage_max": 42, "shots": 1, "range": 420.0, "speed": 760.0, "rate": 2.4,
-					"note": "Zulrah. Sprays darts very quickly."}
-		"serpentine_helm":
-			item = {"name": "Serpentine Helm", "slot": "ability", "stats": {"defense": 5, "vitality": 4},
-					"warcry": {"duration": 6.0, "damage_bonus": 0.35, "speed_bonus": 0.2, "mp_cost": 55},
-					"note": "Zulrah. A long, venomous Warcry."}
-		"dragonfire_shield":
-			item = {"name": "Dragonfire Shield", "slot": "armor", "stats": {"defense": 22, "hp": 80, "vitality": 5},
-					"note": "Vorkath. Wards off dragonfire."}
-		"vorkaths_head":
-			item = {"name": "Vorkath's Head", "slot": "ring", "stats": {"attack": 6, "dexterity": 4},
-					"note": "Vorkath. A grim trophy that sharpens your aim."}
-		"mole_claws":
-			item = {"name": "Mole Claws", "slot": "weapon", "style": Projectiles.Style.CLAW,
-					"damage_min": 55, "damage_max": 75, "shots": 3, "spread": 0.1, "range": 300.0,
-					"note": "Giant Mole. Dig in and tear."}
+		# --- Theatre of Blood ---
+		"scythe_of_vitur":
+			item = {"name": "Scythe of Vitur", "slot": "weapon", "style": Projectiles.Style.CLAW,
+					"damage_min": 200, "damage_max": 255, "shots": 3, "spread": 0.3, "range": 330.0, "size": 18.0,
+					"note": "Theatre of Blood. Three wide, sweeping slashes."}
+		"ghrazi_rapier":
+			item = {"name": "Ghrazi Rapier", "slot": "weapon", "style": Projectiles.Style.ARROW,
+					"damage_min": 340, "damage_max": 420, "shots": 1, "range": 420.0, "speed": 900.0, "rate": 1.8,
+					"note": "Theatre of Blood. Lightning-fast thrusts."}
+		"sanguinesti_staff":
+			item = {"name": "Sanguinesti Staff", "slot": "weapon", "style": Projectiles.Style.ORB,
+					"damage_min": 510, "damage_max": 620, "shots": 1, "range": 560.0, "speed": 620.0, "rate": 1.2,
+					"size": 14.0, "lifesteal": 0.08, "color": Color(0.85, 0.1, 0.15),
+					"note": "Theatre of Blood. Blood magic heals you for 8% of damage dealt."}
+		"justiciar_chestguard":
+			item = {"name": "Justiciar Chestguard", "slot": "armor", "stats": {"defense": 44, "hp": 230, "vitality": 6},
+					"note": "Theatre of Blood. Nearly impenetrable."}
+		"avernic_defender":
+			item = {"name": "Avernic Defender", "slot": "ring", "stats": {"attack": 12, "defense": 8, "hp": 100},
+					"note": "Theatre of Blood. Hits harder, takes less."}
+		# --- Tombs of Amascut ---
+		"tumekens_shadow":
+			item = {"name": "Tumeken's Shadow", "slot": "weapon", "style": Projectiles.Style.ORB,
+					"damage_min": 700, "damage_max": 840, "shots": 1, "range": 620.0, "speed": 560.0, "rate": 1.1,
+					"size": 20.0, "color": Color(0.4, 0.3, 0.9),
+					"note": "Tombs of Amascut. Enormous orbs of shadow magic."}
+		"osmumtens_fang":
+			item = {"name": "Osmumten's Fang", "slot": "weapon", "style": Projectiles.Style.ARROW,
+					"damage_min": 240, "damage_max": 290, "shots": 2, "spread": 0.05, "range": 400.0, "speed": 850.0, "rate": 1.6,
+					"note": "Tombs of Amascut. Twin fangs that rarely miss."}
+		"masori_body":
+			item = {"name": "Masori Body", "slot": "armor", "stats": {"defense": 50, "hp": 280, "dexterity": 6},
+					"note": "Tombs of Amascut. Armour of the gods' chosen."}
+		"masori_mask":
+			item = {"name": "Masori Mask", "slot": "ability", "stats": {"mp": 120, "defense": 8},
+					"warcry": {"duration": 7.0, "damage_bonus": 0.75, "speed_bonus": 0.35, "mp_cost": 60, "heal": 200},
+					"note": "Tombs of Amascut. The mightiest Warcry."}
+		"lightbearer":
+			item = {"name": "Lightbearer", "slot": "ring", "stats": {"mp": 150, "dexterity": 12, "attack": 8},
+					"note": "Tombs of Amascut. Radiant, and quick to recover."}
 		_:
 			return weapon(0)
 	item.tier = UT
@@ -192,9 +228,9 @@ static func bag_color(items: Array) -> Color:
 		best = maxi(best, item.tier)
 	if best >= UT:
 		return BAG_COLORS.white
-	if best >= 5:
+	if best >= 7:
 		return BAG_COLORS.purple
-	if best >= 3:
+	if best >= 4:
 		return BAG_COLORS.pink
 	return BAG_COLORS.brown
 

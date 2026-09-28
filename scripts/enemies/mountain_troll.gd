@@ -2,7 +2,9 @@ extends Enemy
 ## Mountain Troll (OSRS, Troll Country): a hulking brute that hurls volleys of
 ## boulders and pounds the ground, sending out a ring of rubble.
 
-const BOULDER := Color(0.52, 0.5, 0.47)
+## Colours are variables so the Ice Troll can recolour this troll.
+var skin_color := Color(0.45, 0.5, 0.42)
+var boulder_color := Color(0.52, 0.5, 0.47)
 
 var facing := 1.0
 var pound_anim := 0.0
@@ -27,11 +29,11 @@ func _attacks() -> Array:
 func _fire(attack_name: String) -> float:
 	match attack_name:
 		"boulders":
-			fan(position, dir_to_player(position), 2, 0.22, lerpf(140, 170, difficulty), 10.0, BOULDER)
+			fan(position, dir_to_player(position), 2, 0.22, lerpf(140, 170, difficulty), 10.0, boulder_color)
 			return lerpf(1.3, 0.9, difficulty)
 		"pound":
 			pound_anim = 1.0
-			ring(position, int(lerpf(10, 16, difficulty)), 120.0, 7.0, BOULDER.darkened(0.2))
+			ring(position, int(lerpf(10, 16, difficulty)), 120.0, 7.0, boulder_color.darkened(0.2))
 			return lerpf(1.4, 1.0, difficulty)
 	return 1.0
 
@@ -39,7 +41,7 @@ func _fire(attack_name: String) -> float:
 func _draw() -> void:
 	facing = 1.0 if player.position.x >= position.x else -1.0
 	pound_anim = maxf(pound_anim - 0.06, 0.0)
-	var skin := Color(0.45, 0.5, 0.42)
+	var skin := skin_color
 	var dark := Color(0.2, 0.22, 0.18)
 	draw_set_transform(Vector2(0, 22), 0.0, Vector2(1.1, 0.35))
 	draw_circle(Vector2.ZERO, 18.0, Color(0, 0, 0, 0.3))

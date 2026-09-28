@@ -38,9 +38,12 @@ var walk_time := 0.0
 var moving := false
 var hurt_timer := 0.0
 var slow_timer := 0.0
-## Testing aid toggled with 9: all damage dealt is multiplied by DEV_DAMAGE.
-var dev_mode := false
-const DEV_DAMAGE := 10.0
+## Testing aid cycled with 9: Normal, Strong (10x damage dealt), and God
+## (every hit kills, no damage taken).
+enum DevMode { NORMAL, STRONG, GOD }
+const DEV_MODE_NAMES := ["Normal", "Strong mode: 10x damage", "God mode: insta-kill, no damage taken"]
+var dev_mode := DevMode.NORMAL
+const DEV_DAMAGE := [1.0, 10.0, 1e9]
 var warcry_timer := 0.0
 var warcry := {}
 
@@ -85,7 +88,7 @@ func shots_per_second() -> float:
 
 func damage_multiplier() -> float:
 	var bonus: float = warcry.damage_bonus if warcry_timer > 0.0 else 0.0
-	return (0.5 + stat("attack") / 50.0) * (1.0 + bonus) * (DEV_DAMAGE if dev_mode else 1.0)
+	return (0.5 + stat("attack") / 50.0) * (1.0 + bonus) * DEV_DAMAGE[dev_mode]
 
 
 func regen_per_second() -> float:
@@ -142,7 +145,7 @@ func add_xp(amount: int) -> void:
 
 
 func take_damage(amount: float, source: String, ignore_defense := false) -> void:
-	if not alive:
+	if not alive or dev_mode == DevMode.GOD:
 		return
 	var dealt := amount if ignore_defense else maxf(amount - stat("defense"), amount * 0.15)
 	hp = maxf(hp - dealt, 0.0)
@@ -256,7 +259,7 @@ func _throw_axes(dir: Vector2) -> void:
 	for i in count:
 		var damage := randi_range(weapon.damage_min, weapon.damage_max) * damage_multiplier()
 		var angle := (i - (count - 1) / 2.0) * spread
-		shots.spawn(position, dir.rotated(angle) * speed, 12.0, Items.color_of(weapon),
+		shots.spawn(position, dir.rotated(angle) * speed, weapon.get("size", 12.0), Items.color_of(weapon),
 				damage, weapon.range / speed, "", style)
 
 
@@ -284,3 +287,25 @@ func _draw() -> void:
 	var bob := -absf(sin(walk_time * 14.0)) * 2.5 if moving else sin(Time.get_ticks_msec() / 400.0) * 0.6
 	var waddle := sin(walk_time * 14.0) * 0.08 if moving else 0.0
 	BarbarianArt.draw(self, BarbarianArt.HERO, bob, waddle, facing, ART_SCALE)
+
+
+## Called when one of our shots lands; lifesteal weapons heal a share of it.
+func on_hit_enemy(damage: float) -> void:
+	var weapon = equipment.weapon
+	if weapon != null and weapon.get("lifesteal", 0.0) > 0.0 and alive:
+		hp = minf(hp + damage * weapon.lifesteal, max_hp())
+		changed.emit()
+
+
+## Shove the player (gusts, teleports), stopping short of any wall.
+func knock_back(offset: Vector2) -> void:
+	for t in [1.0, 0.75, 0.5, 0.25]:
+		if _is_walkable(position + offset * t):
+			position += offset * t
+			return
+
+
+## Step to the next dev mode (Normal -> Strong -> God -> Normal); returns its name.
+func cycle_dev_mode() -> String:
+	dev_mode = (dev_mode + 1) % DEV_MODE_NAMES.size()
+	return DEV_MODE_NAMES[dev_mode]

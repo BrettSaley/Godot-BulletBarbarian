@@ -3,6 +3,9 @@ extends Enemy
 ## dragonfire and spitting fireballs that burst where they land.
 
 const FIRE := Color(1.0, 0.55, 0.15)
+## Colours are variables so the Lava Dragon can recolour this dragon.
+var scale_tint := Color(0.25, 0.6, 0.25)
+var belly_tint := Color(0.75, 0.8, 0.45)
 
 var facing := 1.0
 
@@ -37,8 +40,8 @@ func _fire(attack_name: String) -> float:
 
 func _draw() -> void:
 	facing = 1.0 if player.position.x >= position.x else -1.0
-	var scale_color := Color(0.25, 0.6, 0.25)
-	var belly := Color(0.75, 0.8, 0.45)
+	var scale_color := scale_tint
+	var belly := belly_tint
 	var flap := sin(time * 6.0)
 	draw_set_transform(Vector2(0, 24), 0.0, Vector2(1.4, 0.35))
 	draw_circle(Vector2.ZERO, 18.0, Color(0, 0, 0, 0.3))

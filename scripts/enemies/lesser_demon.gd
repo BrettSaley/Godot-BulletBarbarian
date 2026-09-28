@@ -3,6 +3,9 @@ extends Enemy
 ## rings of flame and triple fire blasts.
 
 const FIRE := Color(1.0, 0.35, 0.15)
+## Colours are variables so the Black Demon can recolour this demon.
+var body_tint := Color(0.7, 0.12, 0.1)
+var wing_tint := Color(0.2, 0.03, 0.03)
 
 
 func _init() -> void:
@@ -34,8 +37,8 @@ func _fire(attack_name: String) -> float:
 
 
 func _draw() -> void:
-	var red := Color(0.7, 0.12, 0.1)
-	var dark := Color(0.2, 0.03, 0.03)
+	var red := body_tint
+	var dark := wing_tint
 	draw_set_transform(Vector2(0, 20), 0.0, Vector2(1.0, 0.35))
 	draw_circle(Vector2.ZERO, 16.0, Color(0, 0, 0, 0.3))
 	var bob := sin(time * 4.0) * 1.5

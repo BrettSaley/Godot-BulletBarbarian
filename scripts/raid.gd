@@ -1,11 +1,15 @@
 class_name Raid
 extends Node2D
-## The Chambers of Xeric: a chain of rooms joined by corridors, built off to
-## the side of the realm. A lobby, three combat rooms picked at random
-## (Tekton, Vanguards, Vasa Nistirio, Lizardman Shamans), the Great Olm, then
-## the reward chest. Walking into a room seals it until its boss is dead.
-## The Olm fights in three phases (hands, hands, then hands and head), and
-## the Vanguards shield whichever one falls too far behind the others.
+## A raid dungeon: a chain of rooms joined by corridors, built off to the side
+## of the realm. Walking into a room seals it until its boss is dead; the last
+## room holds the reward chest. Three raids share this code:
+##   Chambers of Xeric (Lumbridge) - lobby, three random rooms from Tekton,
+##     Vanguards, Vasa Nistirio and Lizardman Shamans, then the Great Olm
+##     (three phases). The Vanguards shield whichever one falls behind.
+##   Theatre of Blood (God Wars) - Maiden, Bloat, Nylocas (waves, then the
+##     Vasilias), Sotetseg, Xarpus, then Verzik Vitur.
+##   Tombs of Amascut (Wilderness) - Akkha, Ba-Ba, Kephri and Zebak in a random
+##     order, then the Wardens.
 ## All positions are in world coordinates (the node itself sits at 0,0).
 
 signal enemy_died(enemy: Enemy)
@@ -20,37 +24,60 @@ const GlowingCrystal := preload("res://scripts/enemies/raid/glowing_crystal.gd")
 const LizardmanShaman := preload("res://scripts/enemies/raid/lizardman_shaman.gd")
 const OlmHead := preload("res://scripts/enemies/raid/olm_head.gd")
 const OlmHand := preload("res://scripts/enemies/raid/olm_hand.gd")
+const Maiden := preload("res://scripts/enemies/tob/maiden.gd")
+const Bloat := preload("res://scripts/enemies/tob/bloat.gd")
+const NylocasVasilias := preload("res://scripts/enemies/tob/nylocas_vasilias.gd")
+const Sotetseg := preload("res://scripts/enemies/tob/sotetseg.gd")
+const Xarpus := preload("res://scripts/enemies/tob/xarpus.gd")
+const Verzik := preload("res://scripts/enemies/tob/verzik.gd")
+const Akkha := preload("res://scripts/enemies/toa/akkha.gd")
+const BaBa := preload("res://scripts/enemies/toa/baba.gd")
+const Kephri := preload("res://scripts/enemies/toa/kephri.gd")
+const Zebak := preload("res://scripts/enemies/toa/zebak.gd")
+const Wardens := preload("res://scripts/enemies/toa/wardens.gd")
+const Obelisk := preload("res://scripts/enemies/toa/obelisk.gd")
 
 ## Built well past the realm's east edge.
 const ORIGIN := Vector2(World.SIZE.x + 1500, 600)
 const ROOM_SIZE := Vector2(900, 560)
 const SMALL_ROOM := Vector2(560, 440)
-const OLM_ROOM := Vector2(1100, 680)
+const BIG_ROOM := Vector2(1100, 680)
 const CORRIDOR := Vector2(220, 140)
 ## The top of the Olm room is the wall its head and hands sit in.
 const OLM_WALL := 130.0
 ## How far each corridor's walkable strip extends into the rooms it joins.
 const DOORWAY_OVERLAP := 30.0
-const COMBAT_ROOMS := ["tekton", "vanguards", "vasa", "shamans"]
+const RAIDS := {
+	"cox": {"name": "Chambers of Xeric", "floor": Color(0.2, 0.19, 0.22), "accent": Color(0.85, 0.75, 0.55)},
+	"tob": {"name": "Theatre of Blood", "floor": Color(0.22, 0.14, 0.15), "accent": Color(0.9, 0.3, 0.3)},
+	"toa": {"name": "Tombs of Amascut", "floor": Color(0.42, 0.35, 0.24), "accent": Color(0.95, 0.8, 0.4)},
+}
 const ROOM_NAMES := {
-	"lobby": "Chambers of Xeric", "tekton": "Tekton", "vanguards": "Vanguards", "vasa": "Vasa Nistirio",
-	"shamans": "Lizardman Shamans", "olm": "The Great Olm", "chest": "Reward Chamber",
+	"tekton": "Tekton", "vanguards": "Vanguards", "vasa": "Vasa Nistirio",
+	"shamans": "Lizardman Shamans", "olm": "The Great Olm",
+	"maiden": "The Maiden of Sugadinti", "bloat": "The Pestilent Bloat", "nylocas": "The Nylocas",
+	"sotetseg": "Sotetseg", "xarpus": "Xarpus", "verzik": "Verzik Vitur",
+	"akkha": "Path of Het: Akkha", "baba": "Path of Apmeken: Ba-Ba", "kephri": "Path of Scabaras: Kephri",
+	"zebak": "Path of Crondis: Zebak", "wardens": "The Wardens", "chest": "Reward Chamber",
 }
 ## A Vanguard this far (in health %) below the healthiest one becomes immune.
 const VANGUARD_SPREAD := 0.3
 ## Pause before the Olm rises with new hands between phases.
 const OLM_RISE_DELAY := 3.0
-## Raid monsters use this zone tier for their stat scaling.
+const NYLOCAS_WAVES := 4
+const NYLOCAS_WAVE_EVERY := 7.0
+## Raid monsters use this zone tier for their stat scaling (plus the realm's).
 const RAID_TIER := 4
-const FLOOR := Color(0.2, 0.19, 0.22)
 const WALL := Color(0.09, 0.08, 0.1)
 
 ## Set by build().
+var raid_id := "cox"
+var realm := Realms.LUMBRIDGE
 var player: Node2D
 var shots: Node2D
 var enemy_parent: Node2D
 
-## Each room: {kind, rect, state ("waiting" | "fighting" | "cleared"), required: [Enemy]}
+## Each room: {kind, rect, state ("waiting" | "fighting" | "cleared"), required: [Enemy], ...}
 var rooms: Array[Dictionary] = []
 var corridors: Array[Rect2] = []
 var chest_opened_already := false
@@ -58,20 +85,32 @@ var chest_had_purple := false
 var time := 0.0
 
 
-func build(target_player: Node2D, shot_layer: Node2D, enemy_layer: Node2D) -> void:
+func build(id: String, target_player: Node2D, shot_layer: Node2D, enemy_layer: Node2D) -> void:
+	raid_id = id
+	realm = Realms.realm_of_raid(id)
 	player = target_player
 	shots = shot_layer
 	enemy_parent = enemy_layer
-	var picks := COMBAT_ROOMS.duplicate()
-	picks.shuffle()
-	var kinds := ["lobby"] + picks.slice(0, 3) + ["olm", "chest"]
+	var kinds := ["lobby"]
+	match raid_id:
+		"cox":
+			var picks := ["tekton", "vanguards", "vasa", "shamans"]
+			picks.shuffle()
+			kinds += picks.slice(0, 3) + ["olm"]
+		"tob":
+			kinds += ["maiden", "bloat", "nylocas", "sotetseg", "xarpus", "verzik"]
+		"toa":
+			var paths := ["akkha", "baba", "kephri", "zebak"]
+			paths.shuffle()
+			kinds += paths + ["wardens"]
+	kinds.append("chest")
 	var x := ORIGIN.x
 	for kind in kinds:
 		var size := ROOM_SIZE
 		if kind in ["lobby", "chest"]:
 			size = SMALL_ROOM
-		elif kind == "olm":
-			size = OLM_ROOM
+		elif kind in ["olm", "verzik", "wardens"]:
+			size = BIG_ROOM
 		var rect := Rect2(Vector2(x, ORIGIN.y - size.y / 2.0), size)
 		if not rooms.is_empty():
 			corridors.append(Rect2(Vector2(x - CORRIDOR.x, ORIGIN.y - CORRIDOR.y / 2.0), CORRIDOR))
@@ -80,6 +119,10 @@ func build(target_player: Node2D, shot_layer: Node2D, enemy_layer: Node2D) -> vo
 	rooms[0].state = "cleared"
 	rooms[-1].state = "cleared"
 	queue_redraw()
+
+
+func raid_name() -> String:
+	return RAIDS[raid_id].name
 
 
 func entrance() -> Vector2:
@@ -95,9 +138,9 @@ func bounds() -> Rect2:
 
 func room_name_at(pos: Vector2) -> String:
 	for room in rooms:
-		if room.rect.has_point(pos):
+		if room.rect.has_point(pos) and ROOM_NAMES.has(room.kind):
 			return ROOM_NAMES[room.kind]
-	return "Chambers of Xeric"
+	return raid_name()
 
 
 func chest_position() -> Vector2:
@@ -138,12 +181,15 @@ func _physics_process(delta: float) -> void:
 				if room.rect.grow(-40).has_point(player.position):
 					_start(room)
 			"fighting":
-				if room.kind == "vanguards":
-					_balance_vanguards(room)
-				elif room.kind == "olm":
-					_update_olm_phases(room, delta)
+				match room.kind:
+					"vanguards":
+						_balance_vanguards(room)
+					"olm":
+						_update_olm_phases(room, delta)
+					"nylocas":
+						_update_nylocas(room, delta)
 				room.required = room.required.filter(func(e): return is_instance_valid(e) and e.hp > 0.0)
-				if room.required.is_empty():
+				if room.required.is_empty() and not room.get("busy", false):
 					_clear(room)
 	if not chest_opened_already and player.position.distance_to(chest_position()) < 45.0:
 		_open_chest()
@@ -155,47 +201,88 @@ func _start(room: Dictionary) -> void:
 	var rect: Rect2 = room.rect
 	var c := rect.get_center()
 	match room.kind:
+		# --- Chambers of Xeric ---
 		"tekton":
-			var tekton: Enemy = _spawn(Tekton, c + Vector2(150, 0))
+			var tekton: Enemy = Tekton.new()
 			tekton.anvil = rect.position + Vector2(rect.size.x - 90, 80)
-			room.required = [tekton]
+			room.required = [_add(tekton, c + Vector2(150, 0))]
 		"vanguards":
 			for i in 3:
-				var kind: String = ["melee", "ranged", "magic"][i]
 				var vanguard: Enemy = Vanguard.new()
-				vanguard.set_kind(kind)
-				_add(vanguard, c + Vector2.from_angle(TAU * i / 3.0 - PI / 2.0) * 150.0)
-				room.required.append(vanguard)
+				vanguard.set_kind(["melee", "ranged", "magic"][i])
+				room.required.append(_add(vanguard, c + Vector2.from_angle(TAU * i / 3.0 - PI / 2.0) * 150.0))
 		"vasa":
-			var vasa: Enemy = _spawn(Vasa, c)
+			var vasa: Enemy = Vasa.new()
 			vasa.room_center = c
+			_add(vasa, c)
 			for corner in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
-				vasa.crystals.append(_spawn(GlowingCrystal, c + corner * (rect.size / 2.0 - Vector2(80, 70))))
+				vasa.crystals.append(_add(GlowingCrystal.new(), c + corner * (rect.size / 2.0 - Vector2(80, 70))))
 			room.required = [vasa]
 		"shamans":
 			for i in 3:
-				room.required.append(_spawn(LizardmanShaman, c + Vector2(100 + i * 60, (i - 1) * 120)))
+				room.required.append(_add(LizardmanShaman.new(), c + Vector2(100 + i * 60, (i - 1) * 120)))
 		"olm":
-			var head: Enemy = _spawn(OlmHead, Vector2(c.x, rect.position.y + OLM_WALL * 0.5))
+			var head: Enemy = OlmHead.new()
 			head.room = rect
+			_add(head, Vector2(c.x, rect.position.y + OLM_WALL * 0.5))
 			_spawn_olm_hands(head)
 			room.required = [head]
 			room.respawn_timer = 0.0
+		# --- Theatre of Blood ---
+		"maiden":
+			var maiden: Enemy = Maiden.new()
+			maiden.room = rect
+			room.required = [_add(maiden, rect.position + Vector2(160, rect.size.y / 2.0))]
+		"bloat":
+			var bloat: Enemy = Bloat.new()
+			bloat.room = rect
+			room.required = [_add(bloat, rect.position + Vector2(110, 110))]
+		"nylocas":
+			room.busy = true
+			room.waves_left = NYLOCAS_WAVES
+			room.wave_timer = 1.0
+			room.wave_enemies = []
+		"sotetseg":
+			var sotetseg: Enemy = Sotetseg.new()
+			sotetseg.room = rect
+			room.required = [_add(sotetseg, Vector2(c.x, rect.position.y + 60))]
+		"xarpus":
+			room.required = [_add(Xarpus.new(), c)]
+		"verzik":
+			var verzik: Enemy = Verzik.new()
+			verzik.room = rect
+			room.required = [_add(verzik, Vector2(c.x, rect.position.y + 90))]
+		# --- Tombs of Amascut ---
+		"akkha", "baba", "kephri", "zebak":
+			var boss: Enemy = {"akkha": Akkha, "baba": BaBa, "kephri": Kephri, "zebak": Zebak}[room.kind].new()
+			boss.room = rect
+			var spot := Vector2(c.x + 180, c.y) if room.kind != "kephri" else Vector2(c.x + 200, rect.position.y + 100)
+			room.required = [_add(boss, spot)]
+		"wardens":
+			var warden: Enemy = Wardens.new()
+			warden.room = rect
+			_add(warden, Vector2(c.x + 200, c.y))
+			warden.obelisk = _add(Obelisk.new(), Vector2(c.x, rect.position.y + 90))
+			room.required = [warden]
 	walkable_changed.emit(walkable())
 	announce.emit(ROOM_NAMES[room.kind])
 
 
 func _clear(room: Dictionary) -> void:
 	room.state = "cleared"
-	# Leftover adds (crystals, spawn) vanish with their boss.
+	# Leftover adds (crystals, spawn, obelisks) vanish with their boss.
 	for enemy in get_tree().get_nodes_in_group("raid_enemies"):
 		if room.rect.grow(40).has_point(enemy.position):
 			enemy.queue_free()
 	shots.clear_all()
 	get_tree().get_first_node_in_group("hazards").clear_all()
 	walkable_changed.emit(walkable())
-	announce.emit("%s defeated!" % ROOM_NAMES[room.kind] if room.kind != "olm" else "The Great Olm is slain! Claim your reward.")
+	var final_room: bool = room == rooms[-2]
+	announce.emit("%s defeated!" % ROOM_NAMES[room.kind] if not final_room
+			else "%s is conquered! Claim your reward." % raid_name())
 
+
+# --- Chambers of Xeric mechanics ---
 
 func _spawn_olm_hands(head: Enemy) -> void:
 	var hands: Array = []
@@ -244,13 +331,38 @@ func _balance_vanguards(room: Dictionary) -> void:
 			vanguard.invulnerable = false
 
 
-func _spawn(kind: GDScript, pos: Vector2) -> Enemy:
-	return _add(kind.new(), pos)
+# --- Theatre of Blood mechanics ---
 
+## Waves of Nylocas pour in from three doorways; after the last wave is dead,
+## the Nylocas Vasilias arrives.
+func _update_nylocas(room: Dictionary, delta: float) -> void:
+	var rect: Rect2 = room.rect
+	room.wave_enemies = room.wave_enemies.filter(func(e): return is_instance_valid(e) and e.hp > 0.0)
+	if room.waves_left > 0:
+		room.wave_timer -= delta
+		if room.wave_timer <= 0.0 or room.wave_enemies.is_empty() and room.wave_timer < NYLOCAS_WAVE_EVERY - 2.0:
+			var wave: int = NYLOCAS_WAVES - room.waves_left
+			room.waves_left -= 1
+			room.wave_timer = NYLOCAS_WAVE_EVERY
+			var doors := [Vector2(rect.position.x + 30, rect.get_center().y), Vector2(rect.get_center().x, rect.position.y + 30),
+					Vector2(rect.get_center().x, rect.end.y - 30)]
+			var colors := [Color(0.8, 0.8, 0.78), Color(0.35, 0.75, 0.3), Color(0.35, 0.5, 0.95)]
+			for i in 5 + wave * 2:
+				var nylo := Minion.make("nylocas", colors.pick_random())
+				var door: Vector2 = doors[i % doors.size()]
+				room.wave_enemies.append(_add(nylo, door + Vector2(randf_range(-30, 30), randf_range(-30, 30))))
+			announce.emit("Nylocas wave %d of %d!" % [wave + 1, NYLOCAS_WAVES])
+	elif room.busy and room.wave_enemies.is_empty():
+		room.busy = false
+		room.required = [_add(NylocasVasilias.new(), rect.get_center() + Vector2(150, 0))]
+		announce.emit("The Nylocas Vasilias emerges!")
+
+
+# --- Spawning and rewards ---
 
 func _add(enemy: Enemy, pos: Vector2) -> Enemy:
 	enemy.position = pos
-	enemy.setup(RAID_TIER, shots, player)
+	enemy.setup(RAID_TIER, shots, player, realm)
 	enemy.leash_range = INF  # sealed in the room anyway
 	enemy.add_to_group("raid_enemies")
 	enemy.died.connect(func(e: Enemy): enemy_died.emit(e))
@@ -260,7 +372,7 @@ func _add(enemy: Enemy, pos: Vector2) -> Enemy:
 
 func _open_chest() -> void:
 	chest_opened_already = true
-	var loot := Items.raid_chest_loot()
+	var loot := Items.raid_chest_loot(raid_id, realm)
 	chest_had_purple = loot.any(func(item): return item.tier == Items.UT)
 	chest_opened.emit(chest_position() + Vector2(0, 50), loot)
 
@@ -272,27 +384,31 @@ func tear_down() -> void:
 	queue_free()
 
 
+# --- Drawing ---
+
 func _draw() -> void:
+	var floor_color: Color = RAIDS[raid_id].floor
 	for corridor in corridors:
 		draw_rect(corridor.grow(10), WALL)
-		draw_rect(corridor, FLOOR)
+		draw_rect(corridor, floor_color)
 	for room in rooms:
-		_draw_room(room)
+		_draw_room(room, floor_color)
 
 
-func _draw_room(room: Dictionary) -> void:
+func _draw_room(room: Dictionary, floor_color: Color) -> void:
 	var rect: Rect2 = room.rect
+	var accent: Color = RAIDS[raid_id].accent
 	draw_rect(rect.grow(14), WALL)
-	draw_rect(rect, FLOOR)
+	draw_rect(rect, floor_color)
 	# Flagstone grid
 	var tile := 48.0
 	var x := rect.position.x + tile
 	while x < rect.end.x:
-		draw_line(Vector2(x, rect.position.y), Vector2(x, rect.end.y), FLOOR.darkened(0.25), 1.0)
+		draw_line(Vector2(x, rect.position.y), Vector2(x, rect.end.y), floor_color.darkened(0.25), 1.0)
 		x += tile
 	var y := rect.position.y + tile
 	while y < rect.end.y:
-		draw_line(Vector2(rect.position.x, y), Vector2(rect.end.x, y), FLOOR.darkened(0.25), 1.0)
+		draw_line(Vector2(rect.position.x, y), Vector2(rect.end.x, y), floor_color.darkened(0.25), 1.0)
 		y += tile
 	# Torches in the corners
 	for corner in [rect.position + Vector2(20, 20), Vector2(rect.end.x - 20, rect.position.y + 20)]:
@@ -304,8 +420,8 @@ func _draw_room(room: Dictionary) -> void:
 
 	match room.kind:
 		"lobby":
-			draw_string(ThemeDB.fallback_font, rect.position + Vector2(0, 70), "Chambers of Xeric",
-					HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 30, Color(0.85, 0.75, 0.55))
+			draw_string(ThemeDB.fallback_font, rect.position + Vector2(0, 70), raid_name(),
+					HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 30, accent)
 			draw_string(ThemeDB.fallback_font, rect.position + Vector2(0, 100), "Head east. Each room seals until its boss falls.",
 					HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 14, Color(0.75, 0.75, 0.75))
 		"olm":
