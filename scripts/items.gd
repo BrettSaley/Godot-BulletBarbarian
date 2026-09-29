@@ -65,10 +65,11 @@ const STAT_LABELS := {
 ## Tier bands each realm drops: [monster min, monster max, boss min, boss max, chest].
 const REALM_TIERS := [[1, 5, 5, 7, 7], [6, 8, 8, 10, 10], [9, 11, 11, 12, 12]]
 const PURPLE_CHANCE := 0.25
+## Each raid: three weapons, then one armour, helm and accessory.
 const RAID_UNIQUES := {
-	"cox": ["twisted_bow", "elder_maul", "dragon_claws", "dinhs_bulwark", "ancestral_hat"],
-	"tob": ["scythe_of_vitur", "ghrazi_rapier", "sanguinesti_staff", "justiciar_chestguard", "avernic_defender"],
-	"toa": ["tumekens_shadow", "osmumtens_fang", "masori_body", "masori_mask", "lightbearer"],
+	"cox": ["twisted_bow", "elder_maul", "dragon_claws", "ancestral_robe_top", "ancestral_hat", "twisted_buckler"],
+	"tob": ["scythe_of_vitur", "sanguinesti_staff", "ghrazi_rapier", "justiciar_chestguard", "justiciar_faceguard", "avernic_defender"],
+	"toa": ["tumekens_shadow", "osmumtens_fang", "keris_partisan", "masori_body", "masori_mask", "lightbearer"],
 }
 
 ## RotMG-style bag colours: brown, pink, purple, white for dungeon UTs and
@@ -190,9 +191,12 @@ static func unique(id: String) -> Dictionary:
 			item = {"name": "Dragon Claws", "slot": "weapon", "style": Projectiles.Style.CLAW,
 					"damage_min": 303, "damage_max": 347, "shots": 4, "spread": 0.07, "range": 320.0,
 					"note": "Chambers of Xeric. Four slashes at once."}
-		"dinhs_bulwark":
-			item = {"name": "Dinh's Bulwark", "slot": "armor", "stats": {"defense": 62, "hp": 380, "attack": 10},
-					"note": "Chambers of Xeric. A wall of dragon metal that hits back."}
+		"ancestral_robe_top":
+			item = {"name": "Ancestral Robe Top", "slot": "armor", "stats": {"defense": 62, "hp": 380, "attack": 10},
+					"note": "Chambers of Xeric. Robes woven with ancient power."}
+		"twisted_buckler":
+			item = {"name": "Twisted Buckler", "slot": "ring", "stats": {"dexterity": 22, "defense": 16, "hp": 250},
+					"note": "Chambers of Xeric. A light, deadly off-hand."}
 		"ancestral_hat":
 			item = {"name": "Ancestral Hat", "slot": "ability", "stats": {"mp": 150, "defense": 14},
 					"warcry": {"duration": 9.0, "damage_bonus": 1.1, "speed_bonus": 0.45, "mp_cost": 60, "heal": 300},
@@ -206,6 +210,10 @@ static func unique(id: String) -> Dictionary:
 			item = {"name": "Ghrazi Rapier", "slot": "weapon", "style": Projectiles.Style.ARROW,
 					"damage_min": 664, "damage_max": 780, "shots": 1, "range": 420.0, "speed": 900.0, "rate": 1.8,
 					"note": "Theatre of Blood. Lightning-fast thrusts."}
+		"justiciar_faceguard":
+			item = {"name": "Justiciar Faceguard", "slot": "ability", "stats": {"mp": 150, "defense": 14},
+					"warcry": {"duration": 9.0, "damage_bonus": 1.1, "speed_bonus": 0.45, "mp_cost": 60, "heal": 300},
+					"note": "Theatre of Blood. A guardian's Warcry."}
 		"sanguinesti_staff":
 			item = {"name": "Sanguinesti Staff", "slot": "weapon", "style": Projectiles.Style.ORB,
 					"damage_min": 1011, "damage_max": 1155, "shots": 1, "range": 560.0, "speed": 620.0, "rate": 1.2,
@@ -227,6 +235,11 @@ static func unique(id: String) -> Dictionary:
 			item = {"name": "Osmumten's Fang", "slot": "weapon", "style": Projectiles.Style.ARROW,
 					"damage_min": 375, "damage_max": 436, "shots": 2, "spread": 0.05, "range": 400.0, "speed": 850.0, "rate": 1.6,
 					"note": "Tombs of Amascut. Twin fangs that rarely miss."}
+		"keris_partisan":
+			item = {"name": "Keris Partisan of Breaching", "slot": "weapon", "style": Projectiles.Style.BLADE,
+					"damage_min": 800, "damage_max": 935, "shots": 1, "range": 440.0, "speed": 760.0, "rate": 1.5,
+					"color": Color(0.95, 0.8, 0.3),
+					"note": "Tombs of Amascut. Breaches any defence."}
 		"masori_body":
 			item = {"name": "Masori Body", "slot": "armor", "stats": {"defense": 62, "hp": 380, "dexterity": 10},
 					"note": "Tombs of Amascut. Armour of the gods' chosen."}
@@ -336,6 +349,19 @@ static func draw_icon(ci: CanvasItem, item: Dictionary, center: Vector2) -> void
 				center + Vector2(-11, -9), center + Vector2(-4, -11), center + Vector2(0, -7), center + Vector2(4, -11),
 				center + Vector2(11, -9), center + Vector2(9, 11), center + Vector2(-9, 11)]), color.darkened(0.2))
 			ci.draw_line(center + Vector2(-9, 3), center + Vector2(9, 3), color.lightened(0.3), 2.0)
+		"ring" when "Cape" in item.name:
+			ci.draw_colored_polygon(PackedVector2Array([center + Vector2(-6, -11), center + Vector2(6, -11),
+					center + Vector2(11, 11), center + Vector2(-11, 11)]), color)
+			ci.draw_line(center + Vector2(-6, -11), center + Vector2(6, -11), color.lightened(0.4), 2.0)
+		"ring" when "Boots" in item.name:
+			for side in [-1.0, 1.0]:
+				ci.draw_rect(Rect2(center + Vector2(side * 6 - 3, -10), Vector2(6, 14)), color)
+				ci.draw_rect(Rect2(center + Vector2(side * 6 - 3 + side * 2, 2), Vector2(8, 5)), color.darkened(0.2))
+		"ring" when item.tier >= UT and not "Ring" in item.name and item.name != "Lightbearer":
+			# Off-hands: wards, bucklers, defenders.
+			ci.draw_colored_polygon(PackedVector2Array([center + Vector2(-9, -10), center + Vector2(9, -10),
+					center + Vector2(8, 4), center + Vector2(0, 12), center + Vector2(-8, 4)]), color)
+			ci.draw_line(center + Vector2(0, -8), center + Vector2(0, 9), color.lightened(0.4), 2.0)
 		"ring":
 			ci.draw_arc(center + Vector2(0, 2), 8.0, 0.0, TAU, 20, Color(0.95, 0.8, 0.3), 3.0)
 			ci.draw_circle(center + Vector2(0, -7), 4.0, color)
@@ -355,39 +381,37 @@ static func dungeon_unique(id: String) -> Dictionary:
 		"dragon_chainbody":
 			item = {"name": "Dragon Chainbody", "slot": "armor", "stats": {"defense": 24, "hp": 90, "dexterity": 2},
 					"note": "Kalphite Queen. Light, strong dragon mail."}
-		"sarachnis_cudgel":
-			item = {"name": "Sarachnis Cudgel", "slot": "weapon", "style": Projectiles.Style.MAUL,
-					"damage_min": 430, "damage_max": 505, "shots": 1, "range": 320.0, "speed": 500.0, "rate": 0.75,
-					"note": "Sarachnis. A heavy spider-leg club."}
+		"sarachnis_chitin_helm":
+			item = {"name": "Sarachnis Chitin Helm", "slot": "ability", "stats": {"defense": 4, "hp": 30},
+					"warcry": {"duration": 5.5, "damage_bonus": 0.48, "speed_bonus": 0.2, "mp_cost": 55},
+					"color": Color(0.45, 0.35, 0.3),
+					"note": "Sarachnis. Carved from her shed carapace."}
 		"trident_of_the_seas":
 			item = {"name": "Trident of the Seas", "slot": "weapon", "style": Projectiles.Style.ORB,
 					"damage_min": 270, "damage_max": 315, "shots": 1, "range": 520.0, "speed": 640.0, "rate": 1.2,
 					"size": 13.0, "color": Color(0.3, 0.8, 0.85),
 					"note": "Kraken. Bolts of tidal magic."}
-		"toktz_xil_ul":
-			item = {"name": "Toktz-xil-ul", "slot": "weapon", "style": Projectiles.Style.AXE,
-					"damage_min": 105, "damage_max": 128, "shots": 3, "spread": 0.12, "range": 400.0,
-					"color": Color(0.95, 0.45, 0.1),
-					"note": "TzTok-Jad. A fan of obsidian throwing rings."}
+		"fire_cape":
+			item = {"name": "Fire Cape", "slot": "ring", "stats": {"attack": 6, "hp": 80},
+					"color": Color(1.0, 0.45, 0.1),
+					"note": "TzTok-Jad. Proof you survived the Fight Caves."}
 		# --- God Wars dungeons ---
-		"blade_of_saeldor":
-			item = {"name": "Blade of Saeldor", "slot": "weapon", "style": Projectiles.Style.BLADE,
-					"damage_min": 370, "damage_max": 430, "shots": 1, "range": 380.0, "speed": 700.0, "rate": 1.4,
+		"crystal_helm":
+			item = {"name": "Crystal Helm", "slot": "ability", "stats": {"defense": 6, "dexterity": 3},
+					"warcry": {"duration": 6.5, "damage_bonus": 0.6, "speed_bonus": 0.25, "mp_cost": 60},
 					"color": Color(0.55, 0.95, 0.85),
-					"note": "Corrupted Hunllef. A crystal blade that never dulls."}
+					"note": "Corrupted Hunllef. Singing crystal, light as air."}
 		"dragon_hunter_lance":
 			item = {"name": "Dragon Hunter Lance", "slot": "weapon", "style": Projectiles.Style.ARROW,
 					"damage_min": 255, "damage_max": 305, "shots": 2, "spread": 0.06, "range": 420.0, "speed": 760.0,
 					"note": "Alchemical Hydra. Twin lance thrusts."}
-		"infernal_axe":
-			item = {"name": "Infernal Axe", "slot": "weapon", "style": Projectiles.Style.AXE,
-					"damage_min": 510, "damage_max": 610, "shots": 1, "range": 420.0, "size": 16.0,
-					"color": Color(1.0, 0.45, 0.1),
-					"note": "Cerberus. Forged with a smouldering stone."}
-		"inquisitors_great_helm":
-			item = {"name": "Inquisitor's Great Helm", "slot": "ability", "stats": {"defense": 6, "hp": 40},
-					"warcry": {"duration": 6.5, "damage_bonus": 0.6, "speed_bonus": 0.25, "mp_cost": 60},
-					"note": "The Nightmare. A zealot's Warcry."}
+		"primordial_boots":
+			item = {"name": "Primordial Boots", "slot": "ring", "stats": {"attack": 9, "speed": 5},
+					"color": Color(0.85, 0.25, 0.2),
+					"note": "Cerberus. Boots set with a primordial crystal."}
+		"inquisitors_hauberk":
+			item = {"name": "Inquisitor's Hauberk", "slot": "armor", "stats": {"defense": 36, "hp": 160, "attack": 3},
+					"note": "The Nightmare. A zealot's armour."}
 		# --- Wilderness dungeons ---
 		"dragonfire_shield":
 			item = {"name": "Dragonfire Shield", "slot": "armor", "stats": {"defense": 44, "hp": 215, "vitality": 4},
@@ -396,14 +420,14 @@ static func dungeon_unique(id: String) -> Dictionary:
 			item = {"name": "Craw's Bow", "slot": "weapon", "style": Projectiles.Style.ARROW,
 					"damage_min": 485, "damage_max": 560, "shots": 1, "range": 600.0, "speed": 820.0, "rate": 1.4,
 					"note": "Revenant Maledictus. Thrums with revenant ether."}
-		"abyssal_bludgeon":
-			item = {"name": "Abyssal Bludgeon", "slot": "weapon", "style": Projectiles.Style.MAUL,
-					"damage_min": 1130, "damage_max": 1300, "shots": 1, "range": 300.0, "speed": 480.0, "rate": 0.6,
+		"abyssal_crown":
+			item = {"name": "Abyssal Crown", "slot": "ability", "stats": {"defense": 7, "hp": 60},
+					"warcry": {"duration": 7.0, "damage_bonus": 0.66, "speed_bonus": 0.25, "mp_cost": 60},
 					"color": Color(0.6, 0.25, 0.3),
-					"note": "Abyssal Sire. Crushes with abyssal force."}
+					"note": "Abyssal Sire. Its many eyes still watch."}
 		"malediction_ward":
-			item = {"name": "Malediction Ward", "slot": "armor", "stats": {"defense": 43, "hp": 210, "attack": 5},
-					"note": "Scorpia. A cursed ward."}
+			item = {"name": "Malediction Ward", "slot": "ring", "stats": {"defense": 10, "hp": 150, "attack": 6},
+					"note": "Scorpia. A cursed off-hand ward."}
 		_:
 			return weapon(0)
 	item.tier = UT

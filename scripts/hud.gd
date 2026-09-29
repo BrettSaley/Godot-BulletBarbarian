@@ -251,7 +251,8 @@ func _build_item_panel() -> void:
 	var equip_row := HBoxContainer.new()
 	items_column.add_child(equip_row)
 	for slot_name in ["weapon", "ability", "armor", "ring"]:
-		var slot := _slot("equip", slot_name, slot_name.capitalize())
+		# The ring slot holds any accessory: rings, capes, boots, off-hands.
+		var slot := _slot("equip", slot_name, "Acc" if slot_name == "ring" else slot_name.capitalize())
 		equip_row.add_child(slot)
 		equip_slots[slot_name] = slot
 	var inventory_grid := _grid()

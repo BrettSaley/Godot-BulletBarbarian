@@ -42,7 +42,10 @@ func _draw() -> void:
 	draw_rect(rect, border, false, 2.0)
 	if item != null:
 		Items.draw_icon(self, item, size / 2.0)
-		draw_string(ThemeDB.fallback_font, Vector2(size.x - 18, size.y - 3), Items.tier_label(item),
+		# Right-aligned so longer tags like "GIGA" still fit.
+		var tag := Items.tier_label(item)
+		var tag_width := ThemeDB.fallback_font.get_string_size(tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
+		draw_string(ThemeDB.fallback_font, Vector2(size.x - tag_width - 3, size.y - 3), tag,
 				HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1, 1, 1, 0.8))
 	elif placeholder != "":
 		draw_string(ThemeDB.fallback_font, Vector2(0, size.y / 2.0 + 5), placeholder,
