@@ -68,9 +68,9 @@ func _process(delta: float) -> void:
 
 func refresh() -> void:
 	if player.at_final_level():
-		level_label.text = "Barbarian   Score %d" % player.score()
+		level_label.text = "%s   Score %d" % [player.character_name, player.score()]
 	else:
-		level_label.text = "Barbarian   Lv %d  (cap %d)" % [player.level, player.level_cap]
+		level_label.text = "%s   Lv %d  (cap %d)" % [player.character_name, player.level, player.level_cap]
 	hp_bar.max_value = player.max_hp()
 	hp_bar.value = player.hp
 	hp_text.text = "%d / %d" % [ceili(player.hp), player.max_hp()]
@@ -106,7 +106,7 @@ func show_message(text: String, duration := 2.0) -> void:
 	message_timer = duration
 
 
-func show_death(killer: String, level: int) -> void:
+func show_death(character_name: String, killer: String, level: int) -> void:
 	death_panel = ColorRect.new()
 	death_panel.color = Color(0, 0, 0, 0.7)
 	death_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -117,10 +117,10 @@ func show_death(killer: String, level: int) -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 16)
 	center.add_child(column)
-	var title := _label("Your Barbarian has died", 36, Color(1, 0.35, 0.3))
+	var title := _label("%s has died" % character_name, 36, Color(1, 0.35, 0.3))
 	column.add_child(title)
 	column.add_child(_label("Level %d, slain by %s" % [level, killer], 20, Color(1, 1, 1)))
-	column.add_child(_label("Death is permanent. Their gear is lost.", 16, Color(0.8, 0.8, 0.8)))
+	column.add_child(_label("Death is permanent. Their gear and save are gone.", 16, Color(0.8, 0.8, 0.8)))
 	var button := Button.new()
 	button.text = "Play a new Barbarian"
 	button.add_theme_font_size_override("font_size", 20)

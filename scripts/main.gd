@@ -13,6 +13,7 @@ extends Node2D
 
 const RAID_PORTAL_LIFETIME := 60.0
 const DUNGEONS_PER_RAID := 2
+const AUTOSAVE_INTERVAL := 30.0
 ## Screen pixels per world pixel. Fixed, so a bigger window shows more of the
 ## world instead of zooming in (1600x900 shows a 960x540 view).
 const VIEW_SCALE := 1600.0 / 960.0
@@ -43,6 +44,9 @@ var unlocked_realms := 1
 var current_bag: LootBag
 var shown_bag_size := -1
 var locked_notice_timer := 0.0
+var saving := false
+var designing := false
+var autosave_timer := AUTOSAVE_INTERVAL
 
 
 func _ready() -> void:
@@ -75,8 +79,47 @@ func _ready() -> void:
 	hud.slot_clicked.connect(_on_slot_clicked)
 	hud.restart_requested.connect(get_tree().reload_current_scene)
 
-	_travel_to_realm(Realms.LUMBRIDGE)
-	hud.show_message("Welcome to Lumbridge. Danger grows the farther you go.", 5.0)
+	# Only the real game saves; test scripts that add Main by hand don't touch the save.
+	saving = get_tree().current_scene == self
+	var save := SaveGame.read() if saving else {}
+	if save.is_empty():
+		designing = saving
+		_travel_to_realm(Realms.LUMBRIDGE)
+		if designing:
+			_design_character()
+	else:
+		player.load_save(save.player)
+		unlocked_realms = save.unlocked_realms
+		dungeons_done = save.dungeons_done
+		_travel_to_realm(save.realm)
+		hud.show_message("Welcome back, %s." % player.character_name, 4.0)
+
+
+## A new Barbarian starts on the design screen, with the game paused behind it.
+func _design_character() -> void:
+	var creator := CharacterCreator.new()
+	add_child(creator)
+	get_tree().paused = true
+	creator.finished.connect(func(chosen_name: String, look: Dictionary) -> void:
+		get_tree().paused = false
+		designing = false
+		player.set_look(chosen_name, look)
+		_save()
+		hud.show_message("Welcome to Lumbridge, %s. Danger grows the farther you go." % chosen_name, 5.0))
+
+
+# --- Saving (RotMG style: automatic, and deleted when you die) ---
+
+func _save() -> void:
+	if not saving or designing or not player.is_alive():
+		return
+	SaveGame.write({"player": player.to_save(), "realm": realm, "unlocked_realms": unlocked_realms,
+			"dungeons_done": dungeons_done.duplicate()})
+
+
+## Also covers quitting from the pause menu or closing the window.
+func _exit_tree() -> void:
+	_save()
 
 
 func _process(delta: float) -> void:
@@ -88,6 +131,10 @@ func _process(delta: float) -> void:
 		hud.show_bag(bag)
 
 	locked_notice_timer -= delta
+	autosave_timer -= delta
+	if autosave_timer <= 0.0:
+		autosave_timer = AUTOSAVE_INTERVAL
+		_save()
 	if player.is_alive():
 		for portal: Portal in get_tree().get_nodes_in_group("portals"):
 			if not portal.is_queued_for_deletion() and portal.position.distance_to(player.position) < Portal.RADIUS:
@@ -187,6 +234,7 @@ func _travel_to_realm(target: int) -> void:
 	_set_camera_limits(Rect2(Vector2.ZERO, World.SIZE))
 	_build_hub_portals()
 	_update_raid_progress()
+	_save()
 
 
 ## Portals around the hub campfire to every other realm, locked until unlocked.
@@ -331,8 +379,11 @@ func _on_player_leveled_up(new_level: int) -> void:
 
 
 func _on_player_died(killer: String) -> void:
+	# Permadeath: the character's save goes with them.
+	if saving:
+		SaveGame.erase()
 	player.hide()
-	hud.show_death(killer, player.level)
+	hud.show_death(player.character_name, killer, player.level)
 
 
 # --- Items ---

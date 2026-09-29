@@ -57,12 +57,44 @@ var dev_mode := DevMode.NORMAL
 const DEV_DAMAGE := [1.0, 10.0, 1e9]
 var warcry_timer := 0.0
 var warcry := {}
+## Chosen on the character design screen.
+var character_name := "Barbarian"
+var look := {}
+var palette := BarbarianArt.HERO
 
 
 func _ready() -> void:
 	inventory.resize(INVENTORY_SIZE)
 	hp = max_hp()
 	mp = max_mp()
+
+
+# --- Saving ---
+
+func set_look(new_name: String, new_look: Dictionary) -> void:
+	character_name = new_name
+	look = new_look
+	palette = BarbarianArt.palette_for(look)
+	queue_redraw()
+
+
+func to_save() -> Dictionary:
+	return {"name": character_name, "look": look, "level": level, "xp": xp, "total_xp": total_xp,
+			"level_cap": level_cap, "equipment": equipment.duplicate(true), "inventory": inventory.duplicate(true)}
+
+
+func load_save(data: Dictionary) -> void:
+	set_look(data.name, data.look)
+	level = data.level
+	xp = data.xp
+	total_xp = data.total_xp
+	level_cap = data.level_cap
+	equipment = data.equipment
+	inventory = data.inventory
+	inventory.resize(INVENTORY_SIZE)
+	hp = max_hp()
+	mp = max_mp()
+	changed.emit()
 
 
 # --- Stats ---
@@ -319,7 +351,7 @@ func apply_slow(duration: float) -> void:
 func _draw() -> void:
 	var bob := -absf(sin(walk_time * 14.0)) * 2.5 if moving else sin(Time.get_ticks_msec() / 400.0) * 0.6
 	var waddle := sin(walk_time * 14.0) * 0.08 if moving else 0.0
-	BarbarianArt.draw(self, BarbarianArt.HERO, bob, waddle, facing, ART_SCALE)
+	BarbarianArt.draw(self, palette, bob, waddle, facing, ART_SCALE)
 	_draw_overhead_bars()
 
 
