@@ -70,7 +70,7 @@ var aggro_range := 480.0
 var preferred_range := 220.0
 var wander_radius := 200.0
 ## How far from home a monster will chase before giving up.
-var leash_range := 500.0
+var leash_range := 650.0
 var is_boss := false
 ## Drawn and hit-tested this much bigger than the art is authored, so
 ## monsters are easy to see and hit. Bosses are already large.
@@ -193,7 +193,7 @@ func _physics_process(delta: float) -> void:
 	if not aggro and calm_timer <= 0.0 and to_player < aggro_range:
 		aggro = true
 		target = pick_wander_target()
-	elif aggro and (to_player > aggro_range * 1.25 or position.distance_to(home) > leash_range):
+	elif aggro and (to_player > aggro_range * 1.5 or position.distance_to(home) > leash_range):
 		aggro = false
 		attack = ""
 		calm_timer = CALM_TIME

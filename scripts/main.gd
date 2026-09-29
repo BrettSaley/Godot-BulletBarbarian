@@ -94,7 +94,9 @@ func _process(delta: float) -> void:
 				_take_portal(portal)
 				break
 
-	if instance:
+	if instance is Dungeon:
+		hud.area_name = instance.raid_name()
+	elif instance:
 		hud.area_name = "%s: %s" % [instance.raid_name(), instance.room_name_at(player.position)]
 	else:
 		var zone := World.zone_name(player.position, realm)
@@ -102,7 +104,8 @@ func _process(delta: float) -> void:
 		hud.area_name = zone if hub else "%s: %s" % [Realms.info(realm).name, zone]
 
 
-## F11 switches between full screen and a window; 9 cycles the dev modes.
+## F11 switches between full screen and a window; 9 cycles the dev modes;
+## 8 drops every UT and GIGA item nearby.
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
@@ -114,6 +117,20 @@ func _unhandled_input(event: InputEvent) -> void:
 			var mode_name: String = player.cycle_dev_mode()
 			hud.set_dev_mode(player.dev_mode, mode_name)
 			hud.show_message(mode_name, 1.5)
+		KEY_8, KEY_KP_8:
+			_drop_all_uniques()
+
+
+## Dev tool: one bag per raid and per realm's dungeons, in a row by the player.
+func _drop_all_uniques() -> void:
+	var groups: Array = []
+	for raid_id in Items.RAID_UNIQUES:
+		groups.append(Items.RAID_UNIQUES[raid_id].map(func(id): return Items.unique(id)))
+	for r in Realms.count():
+		groups.append(Dungeons.for_realm(r).map(func(id): return Items.dungeon_unique(Dungeons.info(id).unique)))
+	for i in groups.size():
+		_spawn_bag(player.position + Vector2((i - (groups.size() - 1) / 2.0) * 50.0, 70), groups[i])
+	hud.show_message("Dropped every UT and GIGA item.", 2.0)
 
 
 # --- Travelling ---
@@ -149,10 +166,10 @@ func _travel_to_realm(target: int) -> void:
 	if instance:
 		instance.tear_down()
 		instance = null
-		# Any loot left behind in the raid or dungeon is lost.
-		for bag in get_tree().get_nodes_in_group("loot_bags"):
-			if not World.bounds().has_point(bag.position):
-				bag.queue_free()
+		# Any loot and portals left behind in the raid or dungeon are gone.
+		for leftover in get_tree().get_nodes_in_group("loot_bags") + get_tree().get_nodes_in_group("portals"):
+			if not World.bounds().has_point(leftover.position):
+				leftover.queue_free()
 	_clear_combat()
 	if target != realm or spawner.spawned.is_empty():
 		realm = target

@@ -64,7 +64,7 @@ const STAT_LABELS := {
 
 ## Tier bands each realm drops: [monster min, monster max, boss min, boss max, chest].
 const REALM_TIERS := [[1, 5, 5, 7, 7], [6, 8, 8, 10, 10], [9, 11, 11, 12, 12]]
-const PURPLE_CHANCE := 0.25
+const PURPLE_CHANCE := 0.5
 ## Each raid: three weapons, then one armour, helm and accessory.
 const RAID_UNIQUES := {
 	"cox": ["twisted_bow", "elder_maul", "dragon_claws", "ancestral_robe_top", "ancestral_hat", "twisted_buckler"],
@@ -253,6 +253,7 @@ static func unique(id: String) -> Dictionary:
 		_:
 			return weapon(0)
 	item.tier = GIGA
+	item.icon = id
 	return item
 
 
@@ -314,6 +315,9 @@ static func describe(item: Dictionary) -> String:
 
 ## Small drawn icon for an item, centred at `center`, roughly 32px across.
 static func draw_icon(ci: CanvasItem, item: Dictionary, center: Vector2) -> void:
+	if UniqueIcons.has_icon(item.get("icon", "")):
+		UniqueIcons.draw(ci, item.icon, center)
+		return
 	var color := color_of(item)
 	match item.slot:
 		"weapon" when item.get("style") == Projectiles.Style.ARROW:
@@ -368,7 +372,7 @@ static func draw_icon(ci: CanvasItem, item: Dictionary, center: Vector2) -> void
 
 
 ## Each dungeon's one unique, and how likely its boss is to drop it.
-const DUNGEON_UNIQUE_CHANCE := 0.2
+const DUNGEON_UNIQUE_CHANCE := 0.5
 
 
 ## Dungeon uniques (UT): one per dungeon, a little better than their realm's
@@ -431,6 +435,7 @@ static func dungeon_unique(id: String) -> Dictionary:
 		_:
 			return weapon(0)
 	item.tier = UT
+	item.icon = id
 	return item
 
 
