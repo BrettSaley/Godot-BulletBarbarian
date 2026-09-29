@@ -17,3 +17,7 @@ builds/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Local test scripts
+_bot.gd
+_bot.gd.uid
