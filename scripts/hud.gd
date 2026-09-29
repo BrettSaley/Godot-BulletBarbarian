@@ -32,6 +32,10 @@ var boss_arrow: Control
 var death_panel: Control
 var dev_label: Label
 var pause_menu: ColorRect
+var raid_progress: Control
+var raid_progress_done := 0
+var raid_progress_needed := 2
+var raid_progress_name := ""
 
 
 func _ready() -> void:
@@ -63,7 +67,10 @@ func _process(delta: float) -> void:
 
 
 func refresh() -> void:
-	level_label.text = "Barbarian   Lv %d" % player.level
+	if player.at_final_level():
+		level_label.text = "Barbarian   Score %d" % player.score()
+	else:
+		level_label.text = "Barbarian   Lv %d  (cap %d)" % [player.level, player.level_cap]
 	hp_bar.max_value = player.max_hp()
 	hp_bar.value = player.hp
 	hp_text.text = "%d / %d" % [ceili(player.hp), player.max_hp()]
@@ -73,7 +80,7 @@ func refresh() -> void:
 	if player.is_max_level():
 		xp_bar.max_value = 1
 		xp_bar.value = 1
-		xp_text.text = "MAX LEVEL"
+		xp_text.text = "SCORE %d" % player.score() if player.at_final_level() else "LEVEL CAP - complete a raid to raise it"
 	else:
 		xp_bar.max_value = player.xp_to_next()
 		xp_bar.value = player.xp
@@ -352,3 +359,33 @@ func set_dev_mode(mode: int, mode_name: String) -> void:
 	dev_label.text = "DEV - %s  (9 to change)" % mode_name
 	dev_label.add_theme_color_override("font_color", Color(1, 0.85, 0.2) if mode == 2 else Color(1, 0.4, 0.9))
 	dev_label.visible = mode != 0
+
+
+## Dungeons cleared toward the next raid portal, shown under the area name.
+func set_raid_progress(done: int, needed: int, raid_title: String) -> void:
+	raid_progress_done = done
+	raid_progress_needed = needed
+	raid_progress_name = raid_title
+	if raid_progress == null:
+		raid_progress = Control.new()
+		raid_progress.position = Vector2(12, 56)
+		raid_progress.size = Vector2(360, 40)
+		raid_progress.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		raid_progress.draw.connect(_draw_raid_progress)
+		add_child(raid_progress)
+	raid_progress.queue_redraw()
+
+
+func _draw_raid_progress() -> void:
+	var font := ThemeDB.fallback_font
+	var ready := raid_progress_done >= raid_progress_needed
+	var label := "Next world boss opens the %s!" % raid_progress_name if ready \
+			else "Dungeons to unlock the %s:" % raid_progress_name
+	var color := Color(1, 0.85, 0.3) if ready else Color(0.9, 0.9, 0.9)
+	raid_progress.draw_string_outline(font, Vector2(0, 14), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, 4, Color(0, 0, 0))
+	raid_progress.draw_string(font, Vector2(0, 14), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, color)
+	# One pip per dungeon; filled pips are dungeons cleared.
+	for i in raid_progress_needed:
+		var pip := Rect2(Vector2(i * 34, 22), Vector2(28, 12))
+		raid_progress.draw_rect(pip.grow(2), Color(0, 0, 0, 0.7))
+		raid_progress.draw_rect(pip, Color(1, 0.8, 0.3) if i < raid_progress_done else Color(0.3, 0.3, 0.32))

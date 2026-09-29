@@ -7,10 +7,14 @@ signal died(killer: String)
 signal changed  # stats, hp, xp, equipment or inventory changed
 signal leveled_up(new_level: int)
 
-const MAX_LEVEL := 20
+## The level cap starts at 20 and rises as raids are completed (see main.gd).
+const START_LEVEL_CAP := 20
+const MAX_LEVEL := 60
 const INVENTORY_SIZE := 8
 const BASE_STATS := {"hp": 200, "mp": 100, "attack": 12, "defense": 0, "speed": 12, "dexterity": 12, "vitality": 12}
 const PER_LEVEL := {"hp": 25, "mp": 5, "attack": 1, "defense": 0, "speed": 1, "dexterity": 1, "vitality": 1}
+## Levels past 20 grow more slowly, so the later realms stay a challenge.
+const PER_LEVEL_LATE := {"hp": 12, "mp": 3, "attack": 0.25, "defense": 0.1, "speed": 0.1, "dexterity": 0.25, "vitality": 0.25}
 const AXE_SPEED := 560.0
 const AXE_SPREAD := 0.15
 const TILE := 48.0
@@ -20,6 +24,9 @@ const ART_SCALE := 1.3
 var hitbox_radius := 8.0
 var level := 1
 var xp := 0
+## Every point of XP ever earned; at level 60 the HUD shows it as a score.
+var total_xp := 0
+var level_cap := START_LEVEL_CAP
 var hp := 0.0
 var mp := 0.0
 var alive := true
@@ -37,6 +44,10 @@ var facing := 1.0
 var walk_time := 0.0
 var moving := false
 var hurt_timer := 0.0
+## Seconds since the player last took damage.
+var since_hit := 99.0
+const OUT_OF_COMBAT_DELAY := 3.0
+const OUT_OF_COMBAT_REGEN := 0.08  # of max HP per second
 var slow_timer := 0.0
 ## Testing aid cycled with 9: Normal, Strong (10x damage dealt), and God
 ## (every hit kills, no damage taken).
@@ -57,7 +68,9 @@ func _ready() -> void:
 # --- Stats ---
 
 func stat(stat_name: String) -> int:
-	var total: int = BASE_STATS[stat_name] + PER_LEVEL[stat_name] * (level - 1)
+	var early := mini(level, START_LEVEL_CAP) - 1
+	var late := maxi(level - START_LEVEL_CAP, 0)
+	var total: int = BASE_STATS[stat_name] + PER_LEVEL[stat_name] * early + int(PER_LEVEL_LATE[stat_name] * late)
 	for slot in ["ability", "armor", "ring"]:
 		var item = equipment[slot]
 		if item != null:
@@ -91,8 +104,11 @@ func damage_multiplier() -> float:
 	return (0.5 + stat("attack") / 50.0) * (1.0 + bonus) * DEV_DAMAGE[dev_mode]
 
 
+## Normal regen from Vitality, plus a fast out-of-combat regen once you have
+## gone OUT_OF_COMBAT_DELAY seconds without taking a hit.
 func regen_per_second() -> float:
-	return 1.0 + 0.24 * stat("vitality")
+	var out_of_combat := OUT_OF_COMBAT_REGEN * max_hp() if since_hit >= OUT_OF_COMBAT_DELAY else 0.0
+	return 1.0 + 0.24 * stat("vitality") + out_of_combat
 
 
 func mp_regen_per_second() -> float:
@@ -122,7 +138,7 @@ func xp_to_next() -> int:
 
 
 func is_max_level() -> bool:
-	return level >= MAX_LEVEL
+	return level >= level_cap
 
 
 func is_alive() -> bool:
@@ -130,17 +146,32 @@ func is_alive() -> bool:
 
 
 func add_xp(amount: int) -> void:
-	if level >= MAX_LEVEL:
-		return
-	xp += amount
-	while level < MAX_LEVEL and xp >= xp_to_next():
-		xp -= xp_to_next()
-		level += 1
-		hp = max_hp()
-		mp = max_mp()
-		leveled_up.emit(level)
-	if level >= MAX_LEVEL:
-		xp = 0
+	total_xp += amount
+	if level < level_cap:
+		xp += amount
+		while level < level_cap and xp >= xp_to_next():
+			xp -= xp_to_next()
+			level += 1
+			hp = max_hp()
+			mp = max_mp()
+			leveled_up.emit(level)
+		if level >= level_cap:
+			xp = 0
+	changed.emit()
+
+
+## Final score once level 60 is reached.
+func at_final_level() -> bool:
+	return level >= MAX_LEVEL
+
+
+func score() -> int:
+	return total_xp / 10
+
+
+## Completing a raid raises the level cap (never lowers it).
+func raise_level_cap(new_cap: int) -> void:
+	level_cap = maxi(level_cap, mini(new_cap, MAX_LEVEL))
 	changed.emit()
 
 
@@ -150,6 +181,7 @@ func take_damage(amount: float, source: String, ignore_defense := false) -> void
 	var dealt := amount if ignore_defense else maxf(amount - stat("defense"), amount * 0.15)
 	hp = maxf(hp - dealt, 0.0)
 	hurt_timer = 0.12
+	since_hit = 0.0
 	DamageText.spawn(get_parent(), position + Vector2(0, -30), "-%d" % roundi(dealt), Color(1, 0.3, 0.3))
 	changed.emit()
 	if hp <= 0.0:
@@ -239,6 +271,7 @@ func _physics_process(delta: float) -> void:
 			fire_cooldown = 1.0 / (shots_per_second() * (weapon.get("rate", 1.0) if weapon else 1.0))
 
 	hurt_timer -= delta
+	since_hit += delta
 	modulate = Color(1, 0.5, 0.5) if hurt_timer > 0.0 else (Color(1, 0.85, 0.75) if warcry_timer > 0.0 else Color(1, 1, 1))
 	queue_redraw()
 
@@ -287,6 +320,23 @@ func _draw() -> void:
 	var bob := -absf(sin(walk_time * 14.0)) * 2.5 if moving else sin(Time.get_ticks_msec() / 400.0) * 0.6
 	var waddle := sin(walk_time * 14.0) * 0.08 if moving else 0.0
 	BarbarianArt.draw(self, BarbarianArt.HERO, bob, waddle, facing, ART_SCALE)
+	_draw_overhead_bars()
+
+
+## A health bar over the barbarian's head, and a Warcry timer under it while
+## Warcry is active.
+func _draw_overhead_bars() -> void:
+	var width := 40.0
+	var top := Vector2(-width / 2.0, -48.0)
+	draw_rect(Rect2(top - Vector2(1, 1), Vector2(width + 2, 7)), Color(0, 0, 0, 0.75))
+	var fraction := clampf(hp / max_hp(), 0.0, 1.0)
+	var health_color := Color(0.3, 0.85, 0.3) if fraction > 0.5 else (Color(0.95, 0.75, 0.2) if fraction > 0.25 else Color(0.95, 0.25, 0.2))
+	draw_rect(Rect2(top, Vector2(width * fraction, 5)), health_color)
+	if warcry_timer > 0.0 and not warcry.is_empty():
+		var left: float = clampf(warcry_timer / warcry.duration, 0.0, 1.0)
+		var bar := top + Vector2(0, 8)
+		draw_rect(Rect2(bar - Vector2(1, 1), Vector2(width + 2, 5)), Color(0, 0, 0, 0.75))
+		draw_rect(Rect2(bar, Vector2(width * left, 3)), Color(1.0, 0.5, 0.2))
 
 
 ## Called when one of our shots lands; lifesteal weapons heal a share of it.

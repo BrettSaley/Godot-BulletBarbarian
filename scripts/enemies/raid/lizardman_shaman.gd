@@ -46,7 +46,7 @@ func _on_attack_started(attack_name: String) -> void:
 			for i in 2:
 				var spawn: Enemy = Spawn.new()
 				spawn.position = position + Vector2.from_angle(randf() * TAU) * 30.0
-				spawn.setup(tier, shots, player, realm)
+				spawn.setup(tier, shots, player, realm, in_raid)
 				spawn.add_to_group("raid_enemies")
 				get_parent().add_child(spawn)
 

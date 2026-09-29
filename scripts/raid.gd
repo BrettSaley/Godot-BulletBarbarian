@@ -370,7 +370,7 @@ func _update_nylocas(room: Dictionary, delta: float) -> void:
 
 func _add(enemy: Enemy, pos: Vector2) -> Enemy:
 	enemy.position = pos
-	enemy.setup(RAID_TIER, shots, player, realm)
+	enemy.setup(RAID_TIER, shots, player, realm, true)
 	enemy.leash_range = INF  # sealed in the room anyway
 	enemy.bounds = spawn_bounds
 	if spawn_bounds.has_area():
@@ -485,4 +485,4 @@ func _separate(room: Dictionary) -> void:
 
 func _roll_chest() -> void:
 	chest_loot = Items.raid_chest_loot(raid_id, realm)
-	chest_had_purple = chest_loot.any(func(item): return item.tier == Items.UT)
+	chest_had_purple = chest_loot.any(func(item): return item.tier == Items.GIGA)

@@ -8,13 +8,17 @@ extends RefCounted
 ##   Lumbridge   monsters Iron-Adamant,     bosses Adamant-Dragon,   CoX chest Dragon
 ##   God Wars    monsters Rune-Barrows,     bosses Barrows-Armadyl,  ToB chest Armadyl
 ##   Wilderness  monsters Bandos-Oathplate, bosses Oathplate-Torva,  ToA chest Torva
-## Untiered uniques (UT, white bags) only come from raid chests and are
-## better than any tiered gear, all equally strong.
+## Dungeon uniques (UT, white bags) drop from dungeon bosses and sit just above
+## their realm's best tier. Raid uniques are their own GIGA tier (gold bags),
+## only from raid chests, better than anything else and all equally strong.
 
 const TIER_NAMES := ["Bronze", "Iron", "Steel", "Black", "Mithril", "Adamant", "Rune", "Dragon",
 		"Barrows", "Bandos", "Armadyl", "Oathplate", "Torva"]
 const MAX_TIER := 12
+## Dungeon uniques (one per dungeon, white bag).
 const UT := 13
+## Raid uniques: a tier of their own above everything (gold bag).
+const GIGA := 14
 ## First tier past the metals; those items have their own OSRS names.
 const FIRST_NAMED_TIER := 8
 const TIER_COLORS := [
@@ -31,7 +35,8 @@ const TIER_COLORS := [
 	Color(0.92, 0.9, 0.78),   # Armadyl
 	Color(0.85, 0.7, 0.35),   # Oathplate
 	Color(0.55, 0.28, 0.2),   # Torva
-	Color(1, 1, 1),           # Untiered unique
+	Color(1, 1, 1),           # UT: dungeon unique
+	Color(1.0, 0.8, 0.25),    # GIGA: raid unique
 ]
 const WEAPON_NAMES := ["Dharok's Greataxe", "Bandos Godsword", "Armadyl Godsword", "Soulreaper Axe", "Ancient Godsword"]
 const HELM_NAMES := ["Dharok's Helm", "Neitiznot Faceguard", "Armadyl Helmet", "Oathplate Helm", "Torva Full Helm"]
@@ -66,9 +71,10 @@ const RAID_UNIQUES := {
 	"toa": ["tumekens_shadow", "osmumtens_fang", "masori_body", "masori_mask", "lightbearer"],
 }
 
-## RotMG-style bag colours: brown, pink, purple, then white for uniques.
+## RotMG-style bag colours: brown, pink, purple, white for dungeon UTs and
+## gold for raid GIGA items.
 const BAG_COLORS := {"brown": Color(0.55, 0.38, 0.22), "pink": Color(0.95, 0.5, 0.75),
-		"purple": Color(0.6, 0.3, 0.85), "white": Color(0.97, 0.97, 1.0)}
+		"purple": Color(0.6, 0.3, 0.85), "white": Color(1, 1, 1), "gold": Color(1.0, 0.82, 0.3)}
 
 
 static func weapon(tier: int) -> Dictionary:
@@ -154,7 +160,7 @@ static func roll_boss_drop(realm := 0) -> Array:
 
 
 ## A raid chest: the realm's top tier, and a chance at one of that raid's
-## untiered uniques (the "purple").
+## GIGA uniques (the "purple").
 static func raid_chest_loot(raid_id: String, realm: int) -> Array:
 	var loot := []
 	for i in randi_range(2, 3):
@@ -165,75 +171,75 @@ static func raid_chest_loot(raid_id: String, realm: int) -> Array:
 
 
 ## Raid uniques. Weapons change how the barbarian attacks; helms change the
-## Warcry. Every UT beats Torva, the best tiered gear, and all raid UTs are
-## equally strong: weapons deal the same damage per second, armours and helms
-## share one stat budget. They differ in how they play, not in raw power.
+## Warcry. GIGA items are a huge step up - roughly double Torva, the best
+## tiered gear - and all equally strong: weapons deal the same damage per second,
+## armours and helms share one stat budget. They differ in how they play.
 static func unique(id: String) -> Dictionary:
 	var item: Dictionary
 	match id:
 		# --- Chambers of Xeric ---
 		"twisted_bow":
 			item = {"name": "Twisted Bow", "slot": "weapon", "style": Projectiles.Style.ARROW,
-					"damage_min": 640, "damage_max": 745, "shots": 1, "range": 640.0, "speed": 820.0, "rate": 1.3,
+					"damage_min": 925, "damage_max": 1075, "shots": 1, "range": 640.0, "speed": 820.0, "rate": 1.3,
 					"note": "Chambers of Xeric. Long range, fast arrows."}
 		"elder_maul":
 			item = {"name": "Elder Maul", "slot": "weapon", "style": Projectiles.Style.MAUL,
-					"damage_min": 1850, "damage_max": 2150, "shots": 1, "range": 300.0, "speed": 480.0, "rate": 0.45,
+					"damage_min": 2670, "damage_max": 3105, "shots": 1, "range": 300.0, "speed": 480.0, "rate": 0.45,
 					"note": "Chambers of Xeric. Slow, crushing blows."}
 		"dragon_claws":
 			item = {"name": "Dragon Claws", "slot": "weapon", "style": Projectiles.Style.CLAW,
-					"damage_min": 210, "damage_max": 240, "shots": 4, "spread": 0.07, "range": 320.0,
+					"damage_min": 303, "damage_max": 347, "shots": 4, "spread": 0.07, "range": 320.0,
 					"note": "Chambers of Xeric. Four slashes at once."}
 		"dinhs_bulwark":
-			item = {"name": "Dinh's Bulwark", "slot": "armor", "stats": {"defense": 50, "hp": 270, "attack": 6},
+			item = {"name": "Dinh's Bulwark", "slot": "armor", "stats": {"defense": 62, "hp": 380, "attack": 10},
 					"note": "Chambers of Xeric. A wall of dragon metal that hits back."}
 		"ancestral_hat":
-			item = {"name": "Ancestral Hat", "slot": "ability", "stats": {"mp": 100, "defense": 9},
-					"warcry": {"duration": 7.5, "damage_bonus": 0.8, "speed_bonus": 0.35, "mp_cost": 60, "heal": 185},
+			item = {"name": "Ancestral Hat", "slot": "ability", "stats": {"mp": 150, "defense": 14},
+					"warcry": {"duration": 9.0, "damage_bonus": 1.1, "speed_bonus": 0.45, "mp_cost": 60, "heal": 300},
 					"note": "Chambers of Xeric. Warcry also heals."}
 		# --- Theatre of Blood ---
 		"scythe_of_vitur":
 			item = {"name": "Scythe of Vitur", "slot": "weapon", "style": Projectiles.Style.CLAW,
-					"damage_min": 275, "damage_max": 325, "shots": 3, "spread": 0.3, "range": 330.0, "size": 18.0,
+					"damage_min": 397, "damage_max": 469, "shots": 3, "spread": 0.3, "range": 330.0, "size": 18.0,
 					"note": "Theatre of Blood. Three wide, sweeping slashes."}
 		"ghrazi_rapier":
 			item = {"name": "Ghrazi Rapier", "slot": "weapon", "style": Projectiles.Style.ARROW,
-					"damage_min": 460, "damage_max": 540, "shots": 1, "range": 420.0, "speed": 900.0, "rate": 1.8,
+					"damage_min": 664, "damage_max": 780, "shots": 1, "range": 420.0, "speed": 900.0, "rate": 1.8,
 					"note": "Theatre of Blood. Lightning-fast thrusts."}
 		"sanguinesti_staff":
 			item = {"name": "Sanguinesti Staff", "slot": "weapon", "style": Projectiles.Style.ORB,
-					"damage_min": 700, "damage_max": 800, "shots": 1, "range": 560.0, "speed": 620.0, "rate": 1.2,
+					"damage_min": 1011, "damage_max": 1155, "shots": 1, "range": 560.0, "speed": 620.0, "rate": 1.2,
 					"size": 14.0, "lifesteal": 0.08, "color": Color(0.85, 0.1, 0.15),
 					"note": "Theatre of Blood. Blood magic heals you for 8% of damage dealt."}
 		"justiciar_chestguard":
-			item = {"name": "Justiciar Chestguard", "slot": "armor", "stats": {"defense": 50, "hp": 270, "vitality": 6},
+			item = {"name": "Justiciar Chestguard", "slot": "armor", "stats": {"defense": 62, "hp": 380, "vitality": 10},
 					"note": "Theatre of Blood. Nearly impenetrable."}
 		"avernic_defender":
-			item = {"name": "Avernic Defender", "slot": "ring", "stats": {"attack": 14, "defense": 10, "hp": 150},
+			item = {"name": "Avernic Defender", "slot": "ring", "stats": {"attack": 22, "defense": 16, "hp": 250},
 					"note": "Theatre of Blood. Hits harder, takes less."}
 		# --- Tombs of Amascut ---
 		"tumekens_shadow":
 			item = {"name": "Tumeken's Shadow", "slot": "weapon", "style": Projectiles.Style.ORB,
-					"damage_min": 760, "damage_max": 875, "shots": 1, "range": 620.0, "speed": 560.0, "rate": 1.1,
+					"damage_min": 1098, "damage_max": 1264, "shots": 1, "range": 620.0, "speed": 560.0, "rate": 1.1,
 					"size": 20.0, "color": Color(0.4, 0.3, 0.9),
 					"note": "Tombs of Amascut. Enormous orbs of shadow magic."}
 		"osmumtens_fang":
 			item = {"name": "Osmumten's Fang", "slot": "weapon", "style": Projectiles.Style.ARROW,
-					"damage_min": 260, "damage_max": 302, "shots": 2, "spread": 0.05, "range": 400.0, "speed": 850.0, "rate": 1.6,
+					"damage_min": 375, "damage_max": 436, "shots": 2, "spread": 0.05, "range": 400.0, "speed": 850.0, "rate": 1.6,
 					"note": "Tombs of Amascut. Twin fangs that rarely miss."}
 		"masori_body":
-			item = {"name": "Masori Body", "slot": "armor", "stats": {"defense": 50, "hp": 270, "dexterity": 6},
+			item = {"name": "Masori Body", "slot": "armor", "stats": {"defense": 62, "hp": 380, "dexterity": 10},
 					"note": "Tombs of Amascut. Armour of the gods' chosen."}
 		"masori_mask":
-			item = {"name": "Masori Mask", "slot": "ability", "stats": {"mp": 100, "defense": 9},
-					"warcry": {"duration": 7.5, "damage_bonus": 0.8, "speed_bonus": 0.35, "mp_cost": 60, "heal": 185},
+			item = {"name": "Masori Mask", "slot": "ability", "stats": {"mp": 150, "defense": 14},
+					"warcry": {"duration": 9.0, "damage_bonus": 1.1, "speed_bonus": 0.45, "mp_cost": 60, "heal": 300},
 					"note": "Tombs of Amascut. The mightiest Warcry."}
 		"lightbearer":
-			item = {"name": "Lightbearer", "slot": "ring", "stats": {"mp": 150, "dexterity": 14, "attack": 10},
+			item = {"name": "Lightbearer", "slot": "ring", "stats": {"mp": 250, "dexterity": 22, "attack": 16},
 					"note": "Tombs of Amascut. Radiant, and quick to recover."}
 		_:
 			return weapon(0)
-	item.tier = UT
+	item.tier = GIGA
 	return item
 
 
@@ -242,7 +248,12 @@ static func color_of(item: Dictionary) -> Color:
 
 
 static func tier_label(item: Dictionary) -> String:
-	return "UT" if item.tier == UT else "T%d" % item.tier
+	match item.tier:
+		GIGA:
+			return "GIGA"
+		UT:
+			return "UT"
+	return "T%d" % item.tier
 
 
 ## RotMG bag colour for the best item inside.
@@ -250,6 +261,8 @@ static func bag_color(items: Array) -> Color:
 	var best := 0
 	for item in items:
 		best = maxi(best, item.tier)
+	if best >= GIGA:
+		return BAG_COLORS.gold
 	if best >= UT:
 		return BAG_COLORS.white
 	if best >= 8:
@@ -260,7 +273,7 @@ static func bag_color(items: Array) -> Color:
 
 
 static func describe(item: Dictionary) -> String:
-	var tier_text := "Untiered" if item.tier == UT else "Tier %d, %s" % [item.tier, TIER_NAMES[item.tier]]
+	var tier_text := "Tier %d, %s" % [item.tier, TIER_NAMES[item.tier]] if item.tier <= MAX_TIER else ("GIGA, raid unique" if item.tier == GIGA else "UT, dungeon unique")
 	var lines: Array[String] = ["%s  (%s)" % [item.name, tier_text]]
 	if item.has("note"):
 		lines.append(item.note)
@@ -326,3 +339,79 @@ static func draw_icon(ci: CanvasItem, item: Dictionary, center: Vector2) -> void
 		"ring":
 			ci.draw_arc(center + Vector2(0, 2), 8.0, 0.0, TAU, 20, Color(0.95, 0.8, 0.3), 3.0)
 			ci.draw_circle(center + Vector2(0, -7), 4.0, color)
+
+
+## Each dungeon's one unique, and how likely its boss is to drop it.
+const DUNGEON_UNIQUE_CHANCE := 0.2
+
+
+## Dungeon uniques (UT): one per dungeon, a little better than their realm's
+## best tiered gear. Lumbridge's beat Dragon, God Wars' beat Armadyl, and the
+## Wilderness's beat Torva - but none reach the raids' GIGA items.
+static func dungeon_unique(id: String) -> Dictionary:
+	var item: Dictionary
+	match id:
+		# --- Lumbridge dungeons ---
+		"dragon_chainbody":
+			item = {"name": "Dragon Chainbody", "slot": "armor", "stats": {"defense": 24, "hp": 90, "dexterity": 2},
+					"note": "Kalphite Queen. Light, strong dragon mail."}
+		"sarachnis_cudgel":
+			item = {"name": "Sarachnis Cudgel", "slot": "weapon", "style": Projectiles.Style.MAUL,
+					"damage_min": 430, "damage_max": 505, "shots": 1, "range": 320.0, "speed": 500.0, "rate": 0.75,
+					"note": "Sarachnis. A heavy spider-leg club."}
+		"trident_of_the_seas":
+			item = {"name": "Trident of the Seas", "slot": "weapon", "style": Projectiles.Style.ORB,
+					"damage_min": 270, "damage_max": 315, "shots": 1, "range": 520.0, "speed": 640.0, "rate": 1.2,
+					"size": 13.0, "color": Color(0.3, 0.8, 0.85),
+					"note": "Kraken. Bolts of tidal magic."}
+		"toktz_xil_ul":
+			item = {"name": "Toktz-xil-ul", "slot": "weapon", "style": Projectiles.Style.AXE,
+					"damage_min": 105, "damage_max": 128, "shots": 3, "spread": 0.12, "range": 400.0,
+					"color": Color(0.95, 0.45, 0.1),
+					"note": "TzTok-Jad. A fan of obsidian throwing rings."}
+		# --- God Wars dungeons ---
+		"blade_of_saeldor":
+			item = {"name": "Blade of Saeldor", "slot": "weapon", "style": Projectiles.Style.BLADE,
+					"damage_min": 370, "damage_max": 430, "shots": 1, "range": 380.0, "speed": 700.0, "rate": 1.4,
+					"color": Color(0.55, 0.95, 0.85),
+					"note": "Corrupted Hunllef. A crystal blade that never dulls."}
+		"dragon_hunter_lance":
+			item = {"name": "Dragon Hunter Lance", "slot": "weapon", "style": Projectiles.Style.ARROW,
+					"damage_min": 255, "damage_max": 305, "shots": 2, "spread": 0.06, "range": 420.0, "speed": 760.0,
+					"note": "Alchemical Hydra. Twin lance thrusts."}
+		"infernal_axe":
+			item = {"name": "Infernal Axe", "slot": "weapon", "style": Projectiles.Style.AXE,
+					"damage_min": 510, "damage_max": 610, "shots": 1, "range": 420.0, "size": 16.0,
+					"color": Color(1.0, 0.45, 0.1),
+					"note": "Cerberus. Forged with a smouldering stone."}
+		"inquisitors_great_helm":
+			item = {"name": "Inquisitor's Great Helm", "slot": "ability", "stats": {"defense": 6, "hp": 40},
+					"warcry": {"duration": 6.5, "damage_bonus": 0.6, "speed_bonus": 0.25, "mp_cost": 60},
+					"note": "The Nightmare. A zealot's Warcry."}
+		# --- Wilderness dungeons ---
+		"dragonfire_shield":
+			item = {"name": "Dragonfire Shield", "slot": "armor", "stats": {"defense": 44, "hp": 215, "vitality": 4},
+					"note": "King Black Dragon. Forged from a draconic visage."}
+		"craws_bow":
+			item = {"name": "Craw's Bow", "slot": "weapon", "style": Projectiles.Style.ARROW,
+					"damage_min": 485, "damage_max": 560, "shots": 1, "range": 600.0, "speed": 820.0, "rate": 1.4,
+					"note": "Revenant Maledictus. Thrums with revenant ether."}
+		"abyssal_bludgeon":
+			item = {"name": "Abyssal Bludgeon", "slot": "weapon", "style": Projectiles.Style.MAUL,
+					"damage_min": 1130, "damage_max": 1300, "shots": 1, "range": 300.0, "speed": 480.0, "rate": 0.6,
+					"color": Color(0.6, 0.25, 0.3),
+					"note": "Abyssal Sire. Crushes with abyssal force."}
+		"malediction_ward":
+			item = {"name": "Malediction Ward", "slot": "armor", "stats": {"defense": 43, "hp": 210, "attack": 5},
+					"note": "Scorpia. A cursed ward."}
+		_:
+			return weapon(0)
+	item.tier = UT
+	return item
+
+
+## A dungeon boss's drop: loot from the realm's boss band, plus sometimes the
+## dungeon's unique in its own white bag.
+static func roll_dungeon_drop(unique_id: String, realm: int) -> Dictionary:
+	var unique_item = dungeon_unique(unique_id) if randf() < DUNGEON_UNIQUE_CHANCE else null
+	return {"loot": roll_boss_drop(realm), "unique": unique_item}

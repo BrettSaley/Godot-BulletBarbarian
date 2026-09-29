@@ -39,14 +39,13 @@ func _fire(attack_name: String) -> float:
 	var pace := 0.7 if is_enraged() else 1.0
 	match attack_name:
 		"wave":
-			# A wall of water from the west wall with one gap to slip through.
+			# A wall of water from the west wall with a gap to slip through. The
+			# lanes flash first.
 			var lanes := int(room.size.y / LANE)
 			var gap := randi() % (lanes - 3)
-			for lane in lanes:
-				if lane >= gap and lane < gap + 3:
-					continue
-				shoot(Vector2(room.position.x + 16, room.position.y + (lane + 0.5) * LANE), Vector2(220, 0), 13.0, WATER, 1.5)
-			return 2.6 * pace
+			var rows := range(lanes).filter(func(lane): return lane < gap or lane >= gap + 3)
+			lane_attack(room, LANE, rows, 220.0, 13.0, WATER, 1.5)
+			return 3.2 * pace
 		"acid":
 			for i in 4:
 				hazards().pool(player.position + Vector2.from_angle(randf() * TAU) * randf_range(0, 110), 40.0, 7.0,

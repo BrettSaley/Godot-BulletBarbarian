@@ -10,7 +10,7 @@ signal boss_spawned(boss: Enemy)
 ## Enemies to keep alive per zone tier (outer rings are bigger).
 const TARGET_PER_ZONE := [12, 14, 16, 18, 18, 18, 20]
 const MIN_SPAWN_DISTANCE := 700.0
-const BOSS_RESPAWN_DELAY := 45.0
+const BOSS_RESPAWN_DELAY := 22.5
 const BOSS_TIER := 6
 
 ## Set by the main scene.

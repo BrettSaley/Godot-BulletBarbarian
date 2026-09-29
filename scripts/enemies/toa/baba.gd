@@ -52,14 +52,13 @@ func _fire(attack_name: String) -> float:
 			ring(position, 12, 120.0, 7.0, BOULDER)
 			return 1.3
 		"boulders":
-			# A column of boulders rolls across from the west wall with a two-lane gap.
+			# Rows of boulders roll from the west wall, leaving a two-lane gap. The
+			# lanes flash first so you can find the gap.
 			var lanes := int(room.size.y / LANE)
 			var gap := randi() % (lanes - 1)
-			for lane in lanes:
-				if lane == gap or lane == gap + 1:
-					continue
-				shoot(Vector2(room.position.x + 20, room.position.y + (lane + 0.5) * LANE), Vector2(240, 0), 16.0, BOULDER, 2.0)
-			return 2.2
+			var rows := range(lanes).filter(func(lane): return lane != gap and lane != gap + 1)
+			lane_attack(room, LANE, rows, 240.0, 16.0, BOULDER, 2.0)
+			return 3.0
 		"rockfall":
 			hazards().blast(player.position, 45.0, 1.1, bullet_damage * 2.0, "Falling rocks", BOULDER)
 			for i in 5:

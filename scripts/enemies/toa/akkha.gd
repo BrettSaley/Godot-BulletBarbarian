@@ -45,10 +45,15 @@ func _move(delta: float) -> void:
 func _fire(attack_name: String) -> float:
 	match attack_name:
 		"memory":
+			# The quarters go off one after another around the room, clockwise or
+			# anticlockwise from a random corner, so the pattern is readable.
 			var half := room.size / 2.0
 			var quarters := [Rect2(room.position, half), Rect2(room.position + Vector2(half.x, 0), half),
-					Rect2(room.position + Vector2(0, half.y), half), Rect2(room.position + half, half)]
-			quarters.shuffle()
+					Rect2(room.position + half, half), Rect2(room.position + Vector2(0, half.y), half)]
+			var start := randi() % 4
+			var step := 1 if randf() < 0.5 else -1
+			quarters = range(4).map(func(i): return quarters[posmod(start + i * step, 4)])
+			DamageText.spawn(get_parent(), position + Vector2(0, -60), "Clockwise!" if step == 1 else "Anticlockwise!", GOLD, 16)
 			for i in 4:
 				hazards().rect_blast(quarters[i], 1.2 + i * 0.9, bullet_damage * 2.5, "Akkha's memory", GOLD if i % 2 == 0 else SHADOW)
 			return 4.5

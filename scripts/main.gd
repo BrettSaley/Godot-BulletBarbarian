@@ -4,13 +4,15 @@ extends Node2D
 ## and equipment, travelling between realms and raids, unlocking realms, and
 ## permadeath (a new Barbarian starts from scratch, in Lumbridge).
 ##
-## Realm progression: Lumbridge's world bosses open portals to the Chambers of
-## Xeric; completing it unlocks God Wars. God Wars bosses lead to the Theatre
-## of Blood, which unlocks the Wilderness, whose bosses lead to the Tombs of
-## Amascut. Every realm's hub has portals to the others; unlocked realms can
-## always be revisited.
+## Realm progression: killing a world boss opens a portal to one of its
+## realm's dungeons; after DUNGEONS_PER_RAID dungeons are cleared, the next
+## world boss opens the realm's raid instead. Completing the Chambers of Xeric
+## unlocks God Wars, the Theatre of Blood unlocks the Wilderness, and the
+## Tombs of Amascut are the last raid. Every realm's hub has portals to the
+## others; unlocked realms can always be revisited.
 
 const RAID_PORTAL_LIFETIME := 60.0
+const DUNGEONS_PER_RAID := 2
 ## Screen pixels per world pixel. Fixed, so a bigger window shows more of the
 ## world instead of zooming in (1600x900 shows a 960x540 view).
 const VIEW_SCALE := 1600.0 / 960.0
@@ -31,8 +33,11 @@ const HUB_PORTAL_COLORS := [Color(0.45, 0.85, 0.4), Color(0.6, 0.85, 1.0), Color
 @onready var hud: CanvasLayer = $HUD
 
 var camera: Camera2D
-var raid: Raid
+## The raid or dungeon the player is in (null in the overworld).
+var instance: Node2D
 var realm := Realms.LUMBRIDGE
+## Dungeons cleared per realm toward the next raid portal.
+var dungeons_done := [0, 0, 0]
 ## How many realms this Barbarian has unlocked (1 = only Lumbridge).
 var unlocked_realms := 1
 var current_bag: LootBag
@@ -89,8 +94,8 @@ func _process(delta: float) -> void:
 				_take_portal(portal)
 				break
 
-	if raid:
-		hud.area_name = "%s: %s" % [raid.raid_name(), raid.room_name_at(player.position)]
+	if instance:
+		hud.area_name = "%s: %s" % [instance.raid_name(), instance.room_name_at(player.position)]
 	else:
 		var zone := World.zone_name(player.position, realm)
 		var hub: bool = World.zone_tier(player.position) < 0
@@ -120,23 +125,34 @@ func _take_portal(portal: Portal) -> void:
 			hud.show_message(portal.lock_hint, 2.0)
 		return
 	var parts := portal.destination.split(":")
-	if parts[0] == "raid":
-		portal.queue_free()
-		_enter_raid(parts[1])
-	else:
-		var target := int(parts[1])
-		var from_raid := raid != null
-		_travel_to_realm(target)
-		hud.show_message("You return to %s." % Realms.info(target).hub if from_raid
-				else "You travel to %s." % Realms.info(target).name, 3.0)
+	match parts[0]:
+		"raid":
+			portal.queue_free()
+			_enter_instance(Raid.new(), parts[1])
+			# Entering the raid uses up the dungeon progress toward it.
+			dungeons_done[realm] = 0
+			_update_raid_progress()
+		"dungeon":
+			portal.queue_free()
+			_enter_instance(Dungeon.new(), parts[1])
+		_:
+			var target := int(parts[1])
+			var from_instance := instance != null
+			_travel_to_realm(target)
+			hud.show_message("You return to %s." % Realms.info(target).hub if from_instance
+					else "You travel to %s." % Realms.info(target).name, 3.0)
 
 
 ## Go to a realm's hub. Switching to a different realm clears the old realm's
-## monsters, bags and portals; returning from a raid keeps them.
+## monsters, bags and portals; returning from a raid or dungeon keeps them.
 func _travel_to_realm(target: int) -> void:
-	if raid:
-		raid.tear_down()
-		raid = null
+	if instance:
+		instance.tear_down()
+		instance = null
+		# Any loot left behind in the raid or dungeon is lost.
+		for bag in get_tree().get_nodes_in_group("loot_bags"):
+			if not World.bounds().has_point(bag.position):
+				bag.queue_free()
 	_clear_combat()
 	if target != realm or spawner.spawned.is_empty():
 		realm = target
@@ -153,6 +169,7 @@ func _travel_to_realm(target: int) -> void:
 	player.walkable = area
 	_set_camera_limits(Rect2(Vector2.ZERO, World.SIZE))
 	_build_hub_portals()
+	_update_raid_progress()
 
 
 ## Portals around the hub campfire to every other realm, locked until unlocked.
@@ -175,22 +192,52 @@ func _build_hub_portals() -> void:
 		slot += 1
 
 
-func _enter_raid(raid_id: String) -> void:
+## Enter a raid or dungeon (both share the same interface).
+func _enter_instance(new_instance: Node2D, id: String) -> void:
 	_clear_combat()
 	spawner.paused = true
 	hud.boss = null
-	raid = Raid.new()
-	add_child(raid)
-	move_child(raid, world.get_index() + 1)
-	raid.build(raid_id, player, enemy_shots, enemies)
-	raid.enemy_died.connect(_on_enemy_died)
-	raid.walkable_changed.connect(func(rects: Array[Rect2]): player.walkable = rects)
-	raid.announce.connect(func(text: String): hud.show_message(text, 3.0))
-	raid.chest_opened.connect(_on_raid_chest_opened)
-	player.position = raid.entrance()
-	player.walkable = raid.walkable()
-	_set_camera_limits(raid.bounds())
-	hud.show_message("You enter the %s..." % raid.raid_name(), 3.0)
+	instance = new_instance
+	add_child(instance)
+	move_child(instance, world.get_index() + 1)
+	instance.build(id, player, enemy_shots, enemies)
+	instance.enemy_died.connect(_on_enemy_died)
+	instance.walkable_changed.connect(func(rects: Array[Rect2]): player.walkable = rects)
+	instance.announce.connect(func(text: String): hud.show_message(text, 3.0))
+	if instance is Raid:
+		instance.chest_opened.connect(_on_raid_chest_opened)
+	else:
+		instance.boss_defeated.connect(_on_dungeon_boss_defeated)
+	player.position = instance.entrance()
+	player.walkable = instance.walkable()
+	_set_camera_limits(instance.bounds())
+	hud.show_message("You enter %s..." % instance.raid_name(), 3.0)
+
+
+## A dungeon boss drops its loot (and maybe the unique, in its own white
+## bag), counts toward the next raid, and opens the way home.
+func _on_dungeon_boss_defeated(pos: Vector2, drop: Dictionary) -> void:
+	_spawn_bag(pos, drop.loot)
+	if drop.unique != null:
+		_spawn_bag(pos + Vector2(50, 0), [drop.unique])
+	dungeons_done[realm] = mini(dungeons_done[realm] + 1, DUNGEONS_PER_RAID)
+	_update_raid_progress()
+	if dungeons_done[realm] >= DUNGEONS_PER_RAID:
+		hud.show_message("The next world boss will open the %s!" % Realms.info(realm).raid_name, 4.0)
+	_spawn_exit(pos + Vector2(0, 110), instance.realm)
+
+
+func _spawn_exit(pos: Vector2, home: int) -> void:
+	var exit := Portal.new()
+	exit.label = "Exit to %s" % Realms.info(home).hub
+	exit.destination = "realm:%d" % home
+	exit.color = Color(0.4, 0.8, 1.0)
+	exit.position = pos
+	portals.add_child(exit)
+
+
+func _update_raid_progress() -> void:
+	hud.set_raid_progress(dungeons_done[realm], DUNGEONS_PER_RAID, Realms.info(realm).raid_name)
 
 
 func _clear_combat() -> void:
@@ -210,21 +257,19 @@ func _set_camera_limits(rect: Rect2) -> void:
 ## Completing a raid opens the exit, and unlocks the next realm the first time.
 func _on_raid_chest_opened(pos: Vector2, loot: Array) -> void:
 	_spawn_bag(pos, loot)
-	var purple := loot.any(func(item): return item.tier == Items.UT)
-	var message := "A purple! %s" % loot[0].name if purple else "The chest holds the finest gear of %s." % Realms.info(raid.realm).name
-	var next_realm := raid.realm + 1
+	var purple := loot.any(func(item): return item.tier == Items.GIGA)
+	var raid_realm: int = instance.realm
+	# Completing a raid raises the level cap: CoX to 40, ToB to 60.
+	player.raise_level_cap(40 + 20 * raid_realm)
+	var message := "A purple! %s" % loot[0].name if purple else "The chest holds the finest gear of %s." % Realms.info(raid_realm).name
+	var next_realm := raid_realm + 1
 	if next_realm < Realms.count() and next_realm >= unlocked_realms:
 		unlocked_realms = next_realm + 1
-		message += "\n%s unlocked! Its portal waits at %s." % [Realms.info(next_realm).name, Realms.info(raid.realm).hub]
+		message += "\n%s unlocked! Its portal waits at %s." % [Realms.info(next_realm).name, Realms.info(raid_realm).hub]
 	elif next_realm >= Realms.count():
 		message += "\nYou have conquered every raid in the land!"
 	hud.show_message(message, 6.0)
-	var exit := Portal.new()
-	exit.label = "Exit to %s" % Realms.info(raid.realm).hub
-	exit.destination = "realm:%d" % raid.realm
-	exit.color = Color(0.4, 0.8, 1.0)
-	exit.position = pos + Vector2(120, 0)
-	portals.add_child(exit)
+	_spawn_exit(pos + Vector2(120, 0), raid_realm)
 
 
 # --- Combat results ---
@@ -238,12 +283,19 @@ func _on_enemy_died(enemy: Enemy) -> void:
 	if not drops.is_empty():
 		_spawn_bag(enemy.position, drops)
 	if enemy.is_boss:
+		# World bosses open a dungeon, or the raid once enough dungeons are done.
 		var data := Realms.info(realm)
-		hud.show_message("%s has been slain! A portal to the %s opens." % [enemy.display_name, data.raid_name], 4.0)
 		var portal := Portal.new()
-		portal.label = data.raid_name
-		portal.destination = "raid:%s" % data.raid
-		portal.color = data.portal_color
+		if dungeons_done[realm] >= DUNGEONS_PER_RAID:
+			portal.label = data.raid_name
+			portal.destination = "raid:%s" % data.raid
+			portal.color = data.portal_color
+		else:
+			var dungeon_id: String = Dungeons.for_realm(realm).pick_random()
+			portal.label = Dungeons.info(dungeon_id).name
+			portal.destination = "dungeon:%s" % dungeon_id
+			portal.color = Color(0.9, 0.9, 0.95)
+		hud.show_message("%s has been slain! A portal to %s opens." % [enemy.display_name, portal.label], 4.0)
 		portal.lifetime = RAID_PORTAL_LIFETIME
 		portal.position = enemy.position + Vector2(0, -70)
 		portals.add_child(portal)
@@ -256,8 +308,9 @@ func _on_boss_spawned(boss: Enemy) -> void:
 
 func _on_player_leveled_up(new_level: int) -> void:
 	DamageText.spawn(self, player.position + Vector2(0, -44), "LEVEL UP!", Color(1, 0.9, 0.3), 18)
-	if new_level >= 20:
-		hud.show_message("Level 20! Now find better gear.", 3.0)
+	if new_level >= player.level_cap:
+		hud.show_message("Level %d! Now your score counts up." % new_level if player.at_final_level()
+				else "Level %d - the cap! Complete a raid to raise it." % new_level, 3.0)
 
 
 func _on_player_died(killer: String) -> void:
