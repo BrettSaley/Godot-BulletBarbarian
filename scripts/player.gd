@@ -52,9 +52,10 @@ var slow_timer := 0.0
 ## Testing aid cycled with 9: Normal, Strong (10x damage dealt), and God
 ## (every hit kills, no damage taken).
 enum DevMode { NORMAL, STRONG, GOD }
-const DEV_MODE_NAMES := ["Normal", "Strong mode: 10x damage", "God mode: insta-kill, no damage taken"]
+const DEV_MODE_NAMES := ["Normal", "Strong mode: 10x damage", "God mode: insta-kill, no damage taken, 3x speed"]
 var dev_mode := DevMode.NORMAL
 const DEV_DAMAGE := [1.0, 10.0, 1e9]
+const DEV_SPEED := [1.0, 1.0, 3.0]
 var warcry_timer := 0.0
 var warcry := {}
 ## Chosen on the character design screen.
@@ -124,7 +125,7 @@ func warcry_speed() -> float:
 
 
 func move_speed() -> float:
-	return (4.0 + 5.6 * stat("speed") / 75.0) * TILE * warcry_speed()
+	return (4.0 + 5.6 * stat("speed") / 75.0) * TILE * warcry_speed() * DEV_SPEED[dev_mode]
 
 
 func shots_per_second() -> float:

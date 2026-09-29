@@ -95,12 +95,14 @@ func _draw_chunk(ci: Node2D, rect: Rect2, chunk_seed: int) -> void:
 	# Patches blur the ring edges and break up the flat colour.
 	for i in 30:
 		var p: Vector2 = point.call()
-		if zone_tier(p) < 0:
+		var patch_radius := rng.randf_range(40, 110)
+		# Patches are drawn over the hub, so keep them clear of it entirely.
+		if p.distance_to(CENTER) < SAFE_RADIUS + patch_radius:
 			continue
 		var base: Color = colors[zone_tier(p)]
 		var shade := base.lightened(0.07) if rng.randf() < 0.5 else base.darkened(0.08)
 		ci.draw_set_transform(p, rng.randf() * TAU, Vector2(1.0, rng.randf_range(0.5, 0.9)))
-		ci.draw_circle(Vector2.ZERO, rng.randf_range(40, 110), shade)
+		ci.draw_circle(Vector2.ZERO, patch_radius, shade)
 	ci.draw_set_transform(Vector2.ZERO)
 
 	# Ground detail: grass tufts, snow drifts, or ash and embers.

@@ -198,12 +198,16 @@ func _unhandled_input(event: InputEvent) -> void:
 			_drop_all_uniques()
 
 
-## Like RotMG's escape to Nexus: straight back to the current realm's hub,
+## Like RotMG's escape to Nexus: straight back to the current realm's hub at full HP and MP,
 ## from the overworld or out of a dungeon or raid.
 func _escape_to_hub() -> void:
 	if not player.is_alive() or choosing:
 		return
 	_travel_to_realm(realm)
+	# Escaping fully restores you.
+	player.hp = player.max_hp()
+	player.mp = player.max_mp()
+	player.changed.emit()
 	hud.show_message("You escape to %s." % Realms.info(realm).hub, 2.0)
 
 
