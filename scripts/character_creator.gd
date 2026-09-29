@@ -5,6 +5,7 @@ extends CanvasLayer
 ## paused underneath.
 
 signal finished(character_name: String, look: Dictionary)
+signal cancelled
 
 const NAMES := ["Grom", "Ulfrik", "Bjorn", "Hilda", "Ragna", "Thrak", "Sigrun", "Korg", "Brunhild",
 		"Olaf", "Freya", "Durgan", "Astrid", "Magnar", "Ingrid", "Torvald"]
@@ -88,6 +89,11 @@ func _build() -> void:
 	buttons.add_theme_constant_override("separation", 16)
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	column.add_child(buttons)
+	var back := _button("Back", 120)
+	back.pressed.connect(func() -> void:
+		cancelled.emit()
+		queue_free())
+	buttons.add_child(back)
 	var randomize_button := _button("Randomize", 180)
 	randomize_button.pressed.connect(_randomize)
 	buttons.add_child(randomize_button)

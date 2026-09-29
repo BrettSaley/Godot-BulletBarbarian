@@ -4,7 +4,7 @@ extends CanvasLayer
 ## current boss, messages, and the death screen. Built in code.
 
 signal slot_clicked(slot: ItemSlot, button: int)
-signal restart_requested
+signal character_select_requested
 
 const PANEL_BG := Color(0.1, 0.08, 0.07, 0.75)
 
@@ -122,14 +122,14 @@ func show_death(character_name: String, killer: String, level: int) -> void:
 	column.add_child(_label("Level %d, slain by %s" % [level, killer], 20, Color(1, 1, 1)))
 	column.add_child(_label("Death is permanent. Their gear and save are gone.", 16, Color(0.8, 0.8, 0.8)))
 	var button := Button.new()
-	button.text = "Play a new Barbarian"
+	button.text = "Character Select"
 	button.add_theme_font_size_override("font_size", 20)
-	button.pressed.connect(restart_requested.emit)
+	button.pressed.connect(character_select_requested.emit)
 	column.add_child(button)
 	button.grab_focus()
 
 
-## Esc pauses the game with Resume / Quit buttons (not while dead).
+## Esc pauses the game with Resume / Character Select / Quit buttons (not while dead).
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 		if pause_menu and pause_menu.visible:
@@ -168,7 +168,7 @@ func _build_pause_menu() -> void:
 	var title := _label("Paused", 40, Color(1, 0.9, 0.6))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(title)
-	for entry in [["Resume", resume], ["Quit", get_tree().quit]]:
+	for entry in [["Resume", resume], ["Character Select", character_select_requested.emit], ["Quit", get_tree().quit]]:
 		var button := Button.new()
 		button.name = entry[0]
 		button.text = entry[0]

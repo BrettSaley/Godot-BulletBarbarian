@@ -40,15 +40,16 @@ static func zone_name(pos: Vector2, realm_index: int) -> String:
 	return data.hub if tier < 0 else data.zones[tier]
 
 
-## Random point inside the ring for `tier` (and inside the map).
-static func random_point_in_zone(tier: int) -> Vector2:
+## Random point inside the ring for `tier`, at least `margin` inside the map edge.
+static func random_point_in_zone(tier: int, margin := 60.0) -> Vector2:
 	var inner: float = SAFE_RADIUS + 50.0 if tier == 0 else ZONE_EDGES[tier - 1]
 	var outer: float = ZONE_EDGES[tier] if tier < ZONE_EDGES.size() else SIZE.x * 0.7
 	for attempt in 20:
 		var p := CENTER + Vector2.from_angle(randf() * TAU) * randf_range(inner, outer)
-		if bounds().grow(-60).has_point(p):
+		if bounds().grow(-margin).has_point(p):
 			return p
-	return CENTER + Vector2(inner, 0)
+	var safe := bounds().grow(-margin)
+	return (CENTER + Vector2(inner, 0)).clamp(safe.position, safe.end)
 
 
 func _ready() -> void:

@@ -45,7 +45,8 @@ var current_bag: LootBag
 var shown_bag_size := -1
 var locked_notice_timer := 0.0
 var saving := false
-var designing := false
+var choosing := false  # on the select or design screen
+var slot := 0
 var autosave_timer := AUTOSAVE_INTERVAL
 
 
@@ -77,43 +78,70 @@ func _ready() -> void:
 
 	hud.bind_player(player)
 	hud.slot_clicked.connect(_on_slot_clicked)
-	hud.restart_requested.connect(get_tree().reload_current_scene)
+	hud.character_select_requested.connect(_to_character_select)
 
-	# Only the real game saves; test scripts that add Main by hand don't touch the save.
+	# Only the real game saves; test scripts that add Main by hand don't touch the saves.
 	saving = get_tree().current_scene == self
-	var save := SaveGame.read() if saving else {}
+	# Nothing may save until a character is picked, or the blank starting
+	# Barbarian would overwrite slot 1.
+	choosing = saving
+	_travel_to_realm(Realms.LUMBRIDGE)
+	if saving:
+		SaveGame.migrate_old_save()
+		_show_character_select()
+
+
+## The select screen, with the game paused behind it until a character is picked.
+func _show_character_select() -> void:
+	choosing = true
+	get_tree().paused = true
+	var select := CharacterSelect.new()
+	add_child(select)
+	select.chosen.connect(_on_slot_chosen)
+
+
+## Play the character in `chosen_slot`, or design a new one if it's empty.
+func _on_slot_chosen(chosen_slot: int) -> void:
+	slot = chosen_slot
+	var save := SaveGame.read(slot)
 	if save.is_empty():
-		designing = saving
-		_travel_to_realm(Realms.LUMBRIDGE)
-		if designing:
-			_design_character()
-	else:
-		player.load_save(save.player)
-		unlocked_realms = save.unlocked_realms
-		dungeons_done = save.dungeons_done
-		_travel_to_realm(save.realm)
-		hud.show_message("Welcome back, %s." % player.character_name, 4.0)
+		_design_character()
+		return
+	player.load_save(save.player)
+	unlocked_realms = save.unlocked_realms
+	dungeons_done = save.dungeons_done
+	get_tree().paused = false
+	choosing = false
+	_travel_to_realm(save.realm)
+	hud.show_message("Welcome back, %s." % player.character_name, 4.0)
 
 
-## A new Barbarian starts on the design screen, with the game paused behind it.
+## A new Barbarian starts on the design screen; Back returns to the select screen.
 func _design_character() -> void:
 	var creator := CharacterCreator.new()
 	add_child(creator)
-	get_tree().paused = true
+	creator.cancelled.connect(_show_character_select)
 	creator.finished.connect(func(chosen_name: String, look: Dictionary) -> void:
 		get_tree().paused = false
-		designing = false
+		choosing = false
 		player.set_look(chosen_name, look)
 		_save()
 		hud.show_message("Welcome to Lumbridge, %s. Danger grows the farther you go." % chosen_name, 5.0))
 
 
+## Back to the character select screen (after death, or from the pause menu).
+func _to_character_select() -> void:
+	_save()
+	get_tree().paused = false
+	get_tree().reload_current_scene()
+
+
 # --- Saving (RotMG style: automatic, and deleted when you die) ---
 
 func _save() -> void:
-	if not saving or designing or not player.is_alive():
+	if not saving or choosing or not player.is_alive():
 		return
-	SaveGame.write({"player": player.to_save(), "realm": realm, "unlocked_realms": unlocked_realms,
+	SaveGame.write(slot, {"player": player.to_save(), "realm": realm, "unlocked_realms": unlocked_realms,
 			"dungeons_done": dungeons_done.duplicate()})
 
 
@@ -289,16 +317,33 @@ func _on_dungeon_boss_defeated(pos: Vector2, drop: Dictionary) -> void:
 	_update_raid_progress()
 	if dungeons_done[realm] >= DUNGEONS_PER_RAID:
 		hud.show_message("The next world boss will open the %s!" % Realms.info(realm).raid_name, 4.0)
-	_spawn_exit(pos + Vector2(0, 110), instance.realm)
+	_spawn_exit(pos, instance.realm, Vector2(0, 110))
 
 
-func _spawn_exit(pos: Vector2, home: int) -> void:
+## The exit goes `offset` away from `near` (flipped if that side is the closer
+## wall), then is pulled back inside the room so it never lands past a wall.
+func _spawn_exit(near: Vector2, home: int, offset: Vector2) -> void:
 	var exit := Portal.new()
 	exit.label = "Exit to %s" % Realms.info(home).hub
 	exit.destination = "realm:%d" % home
 	exit.color = Color(0.4, 0.8, 1.0)
-	exit.position = pos
+	exit.position = near + offset
+	var room := _instance_rect_at(near)
+	if room.has_area():
+		if not room.has_point(near + offset):
+			offset = -offset
+		var inside := room.grow(-Portal.RADIUS - 6)
+		exit.position = (near + offset).clamp(inside.position, inside.end)
 	portals.add_child(exit)
+
+
+## The biggest walkable area of the raid or dungeon containing `pos`.
+func _instance_rect_at(pos: Vector2) -> Rect2:
+	var best := Rect2()
+	for rect: Rect2 in instance.walkable():
+		if rect.has_point(pos) and rect.get_area() > best.get_area():
+			best = rect
+	return best
 
 
 func _update_raid_progress() -> void:
@@ -334,7 +379,7 @@ func _on_raid_chest_opened(pos: Vector2, loot: Array) -> void:
 	elif next_realm >= Realms.count():
 		message += "\nYou have conquered every raid in the land!"
 	hud.show_message(message, 6.0)
-	_spawn_exit(pos + Vector2(120, 0), raid_realm)
+	_spawn_exit(pos, raid_realm, Vector2(120, 0))
 
 
 # --- Combat results ---
@@ -381,7 +426,7 @@ func _on_player_leveled_up(new_level: int) -> void:
 func _on_player_died(killer: String) -> void:
 	# Permadeath: the character's save goes with them.
 	if saving:
-		SaveGame.erase()
+		SaveGame.erase(slot)
 	player.hide()
 	hud.show_death(player.character_name, killer, player.level)
 

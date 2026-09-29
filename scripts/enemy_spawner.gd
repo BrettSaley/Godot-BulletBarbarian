@@ -12,6 +12,9 @@ const TARGET_PER_ZONE := [12, 14, 16, 18, 18, 18, 20]
 const MIN_SPAWN_DISTANCE := 700.0
 const BOSS_RESPAWN_DELAY := 22.5
 const BOSS_TIER := 6
+## Bosses that move around their spawn (like Zulrah's swamp spots) need room to
+## stay inside the map.
+const BOSS_EDGE_MARGIN := 350.0
 
 ## Set by the main scene.
 var enemy_parent: Node2D
@@ -72,7 +75,7 @@ func _spawn_boss() -> void:
 	var options := range(bosses.size())
 	options.erase(last_boss)
 	last_boss = options.pick_random()
-	boss = _spawn(bosses[last_boss], _spawn_point(BOSS_TIER), BOSS_TIER)
+	boss = _spawn(bosses[last_boss], _spawn_point(BOSS_TIER, BOSS_EDGE_MARGIN), BOSS_TIER)
 	boss_spawned.emit(boss)
 
 
@@ -99,10 +102,10 @@ func _on_enemy_died(enemy: Enemy) -> void:
 
 
 ## A point in the zone that's well away from the player.
-func _spawn_point(tier: int) -> Vector2:
-	var point := World.random_point_in_zone(tier)
+func _spawn_point(tier: int, margin := 60.0) -> Vector2:
+	var point := World.random_point_in_zone(tier, margin)
 	for attempt in 10:
 		if point.distance_to(player.position) > MIN_SPAWN_DISTANCE:
 			break
-		point = World.random_point_in_zone(tier)
+		point = World.random_point_in_zone(tier, margin)
 	return point
