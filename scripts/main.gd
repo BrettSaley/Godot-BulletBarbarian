@@ -179,12 +179,14 @@ func _process(delta: float) -> void:
 		hud.area_name = zone if hub else "%s: %s" % [Realms.info(realm).name, zone]
 
 
-## F11 switches between full screen and a window; 9 cycles the dev modes;
-## 8 drops every UT and GIGA item nearby.
+## R escapes to the hub; F11 switches between full screen and a window;
+## 9 cycles the dev modes; 8 drops every UT and GIGA item nearby.
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
 	match event.keycode:
+		KEY_R:
+			_escape_to_hub()
 		KEY_F11:
 			var fullscreen := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if fullscreen else DisplayServer.WINDOW_MODE_FULLSCREEN)
@@ -194,6 +196,15 @@ func _unhandled_input(event: InputEvent) -> void:
 			hud.show_message(mode_name, 1.5)
 		KEY_8, KEY_KP_8:
 			_drop_all_uniques()
+
+
+## Like RotMG's escape to Nexus: straight back to the current realm's hub,
+## from the overworld or out of a dungeon or raid.
+func _escape_to_hub() -> void:
+	if not player.is_alive() or choosing:
+		return
+	_travel_to_realm(realm)
+	hud.show_message("You escape to %s." % Realms.info(realm).hub, 2.0)
 
 
 ## Dev tool: one bag per raid and per realm's dungeons, in a row by the player.
@@ -220,10 +231,9 @@ func _take_portal(portal: Portal) -> void:
 	match parts[0]:
 		"raid":
 			portal.queue_free()
+			# Progress toward the raid is kept until it's completed, so leaving
+			# early means the next world boss opens it again.
 			_enter_instance(Raid.new(), parts[1])
-			# Entering the raid uses up the dungeon progress toward it.
-			dungeons_done[realm] = 0
-			_update_raid_progress()
 		"dungeon":
 			portal.queue_free()
 			_enter_instance(Dungeon.new(), parts[1])
@@ -371,6 +381,9 @@ func _on_raid_chest_opened(pos: Vector2, loot: Array) -> void:
 	var raid_realm: int = instance.realm
 	# Completing a raid raises the level cap: CoX to 40, ToB to 60.
 	player.raise_level_cap(40 + 20 * raid_realm)
+	# Completing it uses up the dungeon progress; it's two more dungeons to the next.
+	dungeons_done[raid_realm] = 0
+	_update_raid_progress()
 	var message := "A purple! %s" % loot[0].name if purple else "The chest holds the finest gear of %s." % Realms.info(raid_realm).name
 	var next_realm := raid_realm + 1
 	if next_realm < Realms.count() and next_realm >= unlocked_realms:
