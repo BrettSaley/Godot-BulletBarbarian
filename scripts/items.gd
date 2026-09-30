@@ -2,60 +2,73 @@ class_name Items
 extends RefCounted
 ## Item definitions and loot rolls. Items are plain Dictionaries:
 ##   {name, slot ("weapon" | "ability" | "armor" | "ring"), tier, ...stats}
-## Tiers follow OSRS: the metals Bronze (0) to Dragon (7), then Barrows,
-## Bandos, Armadyl, Oathplate and Torva (12), with real OSRS item names.
+## Tiers follow OSRS: the metals Bronze (0) to Dragon (8) with White between
+## Black and Mithril, then Barrows, the Guthix, Saradomin and Zamorak god
+## armours, Armadyl, Bandos, Oathplate and Torva (16), with real OSRS names.
 ## Bronze is starting gear only and never drops. Each realm drops a band:
-##   Lumbridge   monsters Iron-Adamant,     bosses Adamant-Dragon,   CoX chest Dragon
-##   God Wars    monsters Rune-Barrows,     bosses Barrows-Armadyl,  ToB chest Armadyl
-##   Wilderness  monsters Bandos-Oathplate, bosses Oathplate-Torva,  ToA chest Torva
+##   Lumbridge   monsters Iron-Dragon,   bosses Adamant-Dragon,  CoX chest Dragon
+##   God Wars    monsters Rune-Bandos,   bosses Barrows-Bandos,  ToB chest Bandos
+##   Wilderness  monsters Zamorak-Torva, bosses Bandos-Torva,    ToA chest Torva
 ## Dungeon uniques (UT, white bags) drop from dungeon bosses and sit just above
 ## their realm's best tier. Raid uniques are their own GIGA tier (gold bags),
 ## only from raid chests, better than anything else and all equally strong.
 
-const TIER_NAMES := ["Bronze", "Iron", "Steel", "Black", "Mithril", "Adamant", "Rune", "Dragon",
-		"Barrows", "Bandos", "Armadyl", "Oathplate", "Torva"]
-const MAX_TIER := 12
+const TIER_NAMES := ["Bronze", "Iron", "Steel", "Black", "White", "Mithril", "Adamant", "Rune", "Dragon",
+		"Barrows", "Guthix", "Saradomin", "Zamorak", "Armadyl", "Bandos", "Oathplate", "Torva"]
+const MAX_TIER := 16
 ## Dungeon uniques (one per dungeon, white bag).
-const UT := 13
+const UT := 17
 ## Raid uniques: a tier of their own above everything (gold bag).
-const GIGA := 14
+const GIGA := 18
 ## First tier past the metals; those items have their own OSRS names.
-const FIRST_NAMED_TIER := 8
+const FIRST_NAMED_TIER := 9
+## Rune and Dragon thrownaxes throw two at a time.
+const TWIN_AXE_TIER := 7
 const TIER_COLORS := [
 	Color(0.8, 0.52, 0.28),   # Bronze
 	Color(0.58, 0.58, 0.6),   # Iron
 	Color(0.78, 0.8, 0.84),   # Steel
 	Color(0.25, 0.25, 0.28),  # Black
+	Color(0.9, 0.9, 0.86),    # White
 	Color(0.42, 0.45, 0.85),  # Mithril
 	Color(0.35, 0.62, 0.38),  # Adamant
 	Color(0.35, 0.75, 0.85),  # Rune
 	Color(0.9, 0.22, 0.16),   # Dragon
 	Color(0.5, 0.47, 0.42),   # Barrows
-	Color(0.7, 0.55, 0.3),    # Bandos
+	Color(0.55, 0.78, 0.3),   # Guthix
+	Color(0.55, 0.72, 1.0),   # Saradomin
+	Color(0.62, 0.12, 0.28),  # Zamorak
 	Color(0.92, 0.9, 0.78),   # Armadyl
+	Color(0.7, 0.55, 0.3),    # Bandos
 	Color(0.85, 0.7, 0.35),   # Oathplate
 	Color(0.55, 0.28, 0.2),   # Torva
 	Color(1, 1, 1),           # UT: dungeon unique
 	Color(1.0, 0.8, 0.25),    # GIGA: raid unique
 ]
-const WEAPON_NAMES := ["Dharok's Greataxe", "Bandos Godsword", "Armadyl Godsword", "Soulreaper Axe", "Ancient Godsword"]
-const HELM_NAMES := ["Dharok's Helm", "Neitiznot Faceguard", "Armadyl Helmet", "Oathplate Helm", "Torva Full Helm"]
-const ARMOR_NAMES := ["Dharok's Platebody", "Bandos Chestplate", "Armadyl Chestplate", "Oathplate Chest", "Torva Platebody"]
-## Rings: OSRS gem rings, then the boss rings past Zenyte.
-const RING_NAMES := ["Opal", "Sapphire", "Emerald", "Ruby", "Diamond", "Dragonstone", "Onyx", "Zenyte",
-		"Berserker", "Brimstone", "Venator", "Bellator", "Ultor"]
+const WEAPON_NAMES := ["Dharok's Greataxe", "Guthix Mjolnir", "Saradomin Godsword", "Zamorak Godsword",
+		"Armadyl Godsword", "Bandos Godsword", "Soulreaper Axe", "Ancient Godsword"]
+const HELM_NAMES := ["Dharok's Helm", "Guthix Full Helm", "Saradomin Full Helm", "Zamorak Full Helm",
+		"Armadyl Helmet", "Neitiznot Faceguard", "Oathplate Helm", "Torva Full Helm"]
+const ARMOR_NAMES := ["Dharok's Platebody", "Guthix Platebody", "Saradomin Platebody", "Zamorak Platebody",
+		"Armadyl Chestplate", "Bandos Chestplate", "Oathplate Chest", "Torva Platebody"]
+## Rings: OSRS gem rings, then the Fremennik and boss rings past Zenyte.
+const RING_NAMES := ["Opal", "Jade", "Sapphire", "Emerald", "Ruby", "Diamond", "Dragonstone", "Onyx", "Zenyte",
+		"Berserker", "Seers", "Archers", "Warrior", "Venator", "Brimstone", "Bellator", "Ultor"]
 const RING_COLORS := [
-	Color(0.95, 0.85, 0.9), Color(0.25, 0.4, 0.95), Color(0.25, 0.8, 0.35), Color(0.9, 0.2, 0.25),
-	Color(0.92, 0.95, 1.0), Color(0.7, 0.3, 0.9), Color(0.25, 0.22, 0.28), Color(1.0, 0.6, 0.2),
-	Color(0.85, 0.2, 0.2), Color(0.95, 0.45, 0.1), Color(0.45, 0.85, 0.35), Color(0.4, 0.6, 1.0), Color(0.95, 0.9, 0.7),
+	Color(0.95, 0.85, 0.9), Color(0.45, 0.75, 0.45), Color(0.25, 0.4, 0.95), Color(0.25, 0.8, 0.35),
+	Color(0.9, 0.2, 0.25), Color(0.92, 0.95, 1.0), Color(0.7, 0.3, 0.9), Color(0.25, 0.22, 0.28),
+	Color(1.0, 0.6, 0.2), Color(0.85, 0.2, 0.2), Color(0.4, 0.8, 0.9), Color(0.4, 0.75, 0.3),
+	Color(0.8, 0.5, 0.3), Color(0.45, 0.85, 0.35), Color(0.95, 0.45, 0.1), Color(0.4, 0.6, 1.0), Color(0.95, 0.9, 0.7),
 ]
 
 ## Thrownaxes throw two at a time from Rune; the named heavy weapons throw
 ## one huge spinning blade instead.
-const WEAPON_DAMAGE := [[20, 35], [30, 50], [45, 70], [55, 80], [65, 95], [85, 120], [110, 150], [140, 185],
-		[340, 440], [400, 510], [470, 590], [540, 670], [620, 760]]
-const ARMOR_DEFENSE := [2, 5, 8, 10, 12, 15, 18, 22, 26, 30, 34, 38, 42]
-const ARMOR_HP := [0, 10, 20, 25, 35, 45, 60, 80, 100, 120, 145, 170, 200]
+const WEAPON_DAMAGE := [[20, 35], [30, 50], [45, 70], [55, 80], [60, 88], [65, 95], [85, 120], [110, 150], [140, 185],
+		[340, 440], [370, 475], [400, 510], [435, 550], [470, 590], [505, 630], [540, 670], [620, 760]]
+const ARMOR_DEFENSE := [2, 5, 8, 10, 11, 12, 15, 18, 22, 26, 28, 30, 32, 34, 36, 38, 42]
+const ARMOR_HP := [0, 10, 20, 25, 30, 35, 45, 60, 80, 100, 110, 120, 132, 145, 158, 170, 200]
+## How strong each tier's helms and rings are, on a 0 (Bronze) to 12 (Torva) scale.
+const POWER := [0, 1, 2, 3, 3.5, 4, 5, 6, 7, 8, 8.4, 8.8, 9.2, 9.6, 10, 11, 12]
 const RING_STATS := ["hp", "mp", "attack", "defense", "speed", "dexterity", "vitality"]
 const STAT_LABELS := {
 	"hp": "HP", "mp": "MP", "attack": "Attack", "defense": "Defense",
@@ -63,7 +76,7 @@ const STAT_LABELS := {
 }
 
 ## Tier bands each realm drops: [monster min, monster max, boss min, boss max, chest].
-const REALM_TIERS := [[1, 5, 5, 7, 7], [6, 8, 8, 10, 10], [9, 11, 11, 12, 12]]
+const REALM_TIERS := [[1, 8, 6, 8, 8], [7, 14, 9, 14, 14], [12, 16, 14, 16, 16]]
 const PURPLE_CHANCE := 0.5
 ## Each raid: three weapons, then one armour, helm and accessory.
 const RAID_UNIQUES := {
@@ -82,8 +95,8 @@ static func weapon(tier: int) -> Dictionary:
 	var item := {
 		"name": "%s Thrownaxe" % TIER_NAMES[tier], "slot": "weapon", "tier": tier,
 		"damage_min": WEAPON_DAMAGE[tier][0], "damage_max": WEAPON_DAMAGE[tier][1],
-		"shots": 2 if tier >= 6 else 1,
-		"range": 360.0 + mini(tier, 10) * 18.0,
+		"shots": 2 if tier >= TWIN_AXE_TIER else 1,
+		"range": 360.0 + minf(POWER[tier], 10.0) * 18.0,
 	}
 	if tier >= FIRST_NAMED_TIER:
 		var named: String = WEAPON_NAMES[tier - FIRST_NAMED_TIER]
@@ -99,10 +112,11 @@ static func helm(tier: int) -> Dictionary:
 	var helm_name := "%s Full Helm" % TIER_NAMES[tier]
 	if tier >= FIRST_NAMED_TIER:
 		helm_name = HELM_NAMES[tier - FIRST_NAMED_TIER]
+	var p: float = POWER[tier]
 	return {
 		"name": helm_name, "slot": "ability", "tier": tier,
-		"stats": {"defense": tier / 2},
-		"warcry": {"duration": 3.0 + 0.3 * tier, "damage_bonus": 0.2 + 0.035 * tier, "speed_bonus": 0.2, "mp_cost": 40 + 3 * tier},
+		"stats": {"defense": int(p / 2.0)},
+		"warcry": {"duration": 3.0 + 0.3 * p, "damage_bonus": 0.2 + 0.035 * p, "speed_bonus": 0.2, "mp_cost": 40 + roundi(3 * p)},
 	}
 
 
@@ -119,7 +133,8 @@ static func armor(tier: int) -> Dictionary:
 static func ring(tier: int, stat: String = "") -> Dictionary:
 	if stat == "":
 		stat = RING_STATS.pick_random()
-	var amount := 20 * (tier + 1) if stat in ["hp", "mp"] else tier + 1
+	var p := roundi(POWER[tier])
+	var amount := 20 * (p + 1) if stat in ["hp", "mp"] else p + 1
 	return {
 		"name": "%s Ring (%s)" % [RING_NAMES[tier], STAT_LABELS[stat]], "slot": "ring", "tier": tier,
 		"stats": {stat: amount}, "color": RING_COLORS[tier],
@@ -279,9 +294,9 @@ static func bag_color(items: Array) -> Color:
 		return BAG_COLORS.gold
 	if best >= UT:
 		return BAG_COLORS.white
-	if best >= 8:
+	if best >= FIRST_NAMED_TIER:
 		return BAG_COLORS.purple
-	if best >= 5:
+	if best >= 6:
 		return BAG_COLORS.pink
 	return BAG_COLORS.brown
 
@@ -376,7 +391,7 @@ const DUNGEON_UNIQUE_CHANCE := 0.5
 
 
 ## Dungeon uniques (UT): one per dungeon, a little better than their realm's
-## best tiered gear. Lumbridge's beat Dragon, God Wars' beat Armadyl, and the
+## best tiered gear. Lumbridge's beat Dragon, God Wars' beat Bandos, and the
 ## Wilderness's beat Torva - but none reach the raids' GIGA items.
 static func dungeon_unique(id: String) -> Dictionary:
 	var item: Dictionary
@@ -407,14 +422,14 @@ static func dungeon_unique(id: String) -> Dictionary:
 					"note": "Corrupted Hunllef. Singing crystal, light as air."}
 		"dragon_hunter_lance":
 			item = {"name": "Dragon Hunter Lance", "slot": "weapon", "style": Projectiles.Style.ARROW,
-					"damage_min": 255, "damage_max": 305, "shots": 2, "spread": 0.06, "range": 420.0, "speed": 760.0,
+					"damage_min": 275, "damage_max": 330, "shots": 2, "spread": 0.06, "range": 420.0, "speed": 760.0,
 					"note": "Alchemical Hydra. Twin lance thrusts."}
 		"primordial_boots":
 			item = {"name": "Primordial Boots", "slot": "ring", "stats": {"attack": 9, "speed": 5},
 					"color": Color(0.85, 0.25, 0.2),
 					"note": "Cerberus. Boots set with a primordial crystal."}
 		"inquisitors_hauberk":
-			item = {"name": "Inquisitor's Hauberk", "slot": "armor", "stats": {"defense": 36, "hp": 160, "attack": 3},
+			item = {"name": "Inquisitor's Hauberk", "slot": "armor", "stats": {"defense": 38, "hp": 168, "attack": 3},
 					"note": "The Nightmare. A zealot's armour."}
 		# --- Wilderness dungeons ---
 		"dragonfire_shield":

@@ -21,9 +21,9 @@ const SLEEP_DISTANCE := 1100.0
 ## near-best gear:
 ##   Lumbridge zones  levelling up in Bronze -> Adamant/Rune
 ##   Chambers of Xeric      near-best Lumbridge gear (Dragon)
-##   God Wars zones   a big step up: Dragon at first, working up to Armadyl
-##   Theatre of Blood       near-best God Wars gear (Armadyl), level 40
-##   Wilderness zones Armadyl, working up to Torva
+##   God Wars zones   a big step up: Dragon at first, working up to Bandos
+##   Theatre of Blood       near-best God Wars gear (Bandos), level 40
+##   Wilderness zones Bandos, working up to Torva
 ##   Tombs of Amascut       near-best Wilderness gear (Torva), level 60
 ## Health is set so fights last about as long as intended at the expected
 ## damage-per-second; damage is set against the expected Defence and HP.
