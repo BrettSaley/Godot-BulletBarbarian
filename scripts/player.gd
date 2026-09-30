@@ -48,6 +48,9 @@ var hurt_timer := 0.0
 var since_hit := 99.0
 const OUT_OF_COMBAT_DELAY := 3.0
 const OUT_OF_COMBAT_REGEN := 0.08  # of max HP per second
+## Protection from the hub's safe zone lasts this long after leaving it.
+const SAFE_LINGER := 1.0
+var safe_timer := 0.0
 var slow_timer := 0.0
 ## Testing aid cycled with 9: Normal, Strong (10x damage dealt), and God
 ## (every hit kills, no damage taken).
@@ -174,6 +177,11 @@ func is_max_level() -> bool:
 	return level >= level_cap
 
 
+## In the hub's safe zone, or just left it: can't attack or be hurt.
+func is_safe() -> bool:
+	return safe_timer > 0.0
+
+
 func is_alive() -> bool:
 	return alive
 
@@ -209,7 +217,7 @@ func raise_level_cap(new_cap: int) -> void:
 
 
 func take_damage(amount: float, source: String, ignore_defense := false) -> void:
-	if not alive or dev_mode == DevMode.GOD:
+	if not alive or dev_mode == DevMode.GOD or is_safe():
 		return
 	var dealt := amount if ignore_defense else maxf(amount - stat("defense"), amount * 0.15)
 	hp = maxf(hp - dealt, 0.0)
@@ -271,6 +279,7 @@ func unequip(slot: String) -> bool:
 func _physics_process(delta: float) -> void:
 	if not alive:
 		return
+	safe_timer = SAFE_LINGER if World.in_safe_zone(position) else safe_timer - delta
 	var input := Vector2(
 		Input.get_axis("move_left", "move_right") + Input.get_axis("ui_left", "ui_right"),
 		Input.get_axis("move_up", "move_down") + Input.get_axis("ui_up", "ui_down")
@@ -306,13 +315,16 @@ func _physics_process(delta: float) -> void:
 	hurt_timer -= delta
 	since_hit += delta
 	modulate = Color(1, 0.5, 0.5) if hurt_timer > 0.0 else (Color(1, 0.85, 0.75) if warcry_timer > 0.0 else Color(1, 1, 1))
+	if is_safe():
+		# Greyed out while protected by the hub (and briefly after leaving it).
+		modulate = Color(0.62, 0.62, 0.66)
 	queue_redraw()
 
 
 func _wants_to_shoot() -> bool:
-	# Clicking on inventory slots shouldn't throw axes, and the hub is a safe zone.
+	# Clicking on inventory slots shouldn't throw axes, and no attacking while safe.
 	return Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and get_viewport().gui_get_hovered_control() == null \
-			and not World.in_safe_zone(position)
+			and not is_safe()
 
 
 func _throw_axes(dir: Vector2) -> void:
