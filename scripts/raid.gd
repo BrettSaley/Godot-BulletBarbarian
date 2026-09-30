@@ -9,7 +9,8 @@ extends Node2D
 ##   Theatre of Blood (God Wars) - Maiden, Bloat, Nylocas (waves, then the
 ##     Vasilias), Sotetseg, Xarpus, then Verzik Vitur.
 ##   Tombs of Amascut (Wilderness) - Akkha, Ba-Ba, Kephri and Zebak in a random
-##     order, then the Wardens.
+##     order, then both Wardens: the Obelisk, one Warden fighting while the
+##     other casts from the dais, then the survivor on its throne.
 ## All positions are in world coordinates (the node itself sits at 0,0).
 
 signal enemy_died(enemy: Enemy)
@@ -45,6 +46,9 @@ const BIG_ROOM := Vector2(1100, 680)
 const CORRIDOR := Vector2(220, 140)
 ## The top of the Olm room is the wall its head and hands sit in.
 const OLM_WALL := 130.0
+## The Wardens stand on a raised dais along the top of their room.
+const WARDEN_DAIS := 130.0
+const WARDEN_PEDESTAL_X := 330.0
 ## How far each corridor's walkable strip extends into the rooms it joins.
 const DOORWAY_OVERLAP := 30.0
 const RAIDS := {
@@ -174,6 +178,8 @@ func _floor(room: Dictionary) -> Rect2:
 	var rect: Rect2 = room.rect
 	if room.kind == "olm":
 		rect = Rect2(rect.position + Vector2(0, OLM_WALL), rect.size - Vector2(0, OLM_WALL))
+	elif room.kind == "wardens":
+		rect = Rect2(rect.position + Vector2(0, WARDEN_DAIS), rect.size - Vector2(0, WARDEN_DAIS))
 	return rect.grow(-14)
 
 
@@ -203,7 +209,7 @@ func _physics_process(delta: float) -> void:
 
 func _start(room: Dictionary) -> void:
 	room.state = "fighting"
-	spawn_bounds = room.rect.grow(-14) if room.kind == "olm" else _floor(room)
+	spawn_bounds = room.rect.grow(-14) if room.kind in ["olm", "wardens"] else _floor(room)
 	var rect: Rect2 = room.rect
 	var c := rect.get_center()
 	match room.kind:
@@ -265,11 +271,24 @@ func _start(room: Dictionary) -> void:
 			var spot := Vector2(c.x + 180, c.y) if room.kind != "kephri" else Vector2(c.x + 200, rect.position.y + 100)
 			room.required = [_add(boss, spot)]
 		"wardens":
-			var warden: Enemy = Wardens.new()
-			warden.room = rect
-			_add(warden, Vector2(c.x + 200, c.y))
-			warden.obelisk = _add(Obelisk.new(), Vector2(c.x, rect.position.y + 90))
-			room.required = [warden]
+			# Both Wardens wait on the dais; the Obelisk shields them from the floor.
+			var floor_rect := _floor(room)
+			var obelisk := _add(Obelisk.new(), Vector2(c.x, floor_rect.position.y + 110))
+			var wardens: Array = []
+			var leader := randi() % 2
+			for i in 2:
+				var warden: Enemy = Wardens.new()
+				warden.set_kind(["elidinis", "tumeken"][i])
+				warden.room = rect
+				warden.floor_rect = floor_rect
+				warden.obelisk = obelisk
+				warden.leads = i == leader
+				warden.pedestal = Vector2(c.x + (i * 2 - 1) * WARDEN_PEDESTAL_X, rect.position.y + WARDEN_DAIS * 0.5)
+				warden.throne = Vector2(c.x, rect.position.y + WARDEN_DAIS * 0.5)
+				wardens.append(_add(warden, warden.pedestal))
+			wardens[0].partner = wardens[1]
+			wardens[1].partner = wardens[0]
+			room.required = wardens
 	walkable_changed.emit(walkable())
 	announce.emit(ROOM_NAMES[room.kind])
 
@@ -443,6 +462,17 @@ func _draw_room(room: Dictionary, floor_color: Color) -> void:
 				var cx := rect.position.x + 40 + k * 78.0
 				draw_colored_polygon(PackedVector2Array([Vector2(cx - 10, wall.end.y), Vector2(cx, wall.end.y - 30 - (k % 3) * 12),
 						Vector2(cx + 10, wall.end.y)]), Color(0.45, 0.65, 0.58))
+		"wardens":
+			# Raised sandstone dais with a pedestal for each Warden and a throne between.
+			var dais := Rect2(rect.position, Vector2(rect.size.x, WARDEN_DAIS))
+			draw_rect(dais, accent.darkened(0.45))
+			draw_rect(Rect2(dais.position.x, dais.end.y - 10, dais.size.x, 10), accent.darkened(0.6))
+			var mid := rect.get_center().x
+			for px in [mid - WARDEN_PEDESTAL_X, mid + WARDEN_PEDESTAL_X]:
+				draw_rect(Rect2(px - 50, dais.position.y + 25, 100, 80), accent.darkened(0.3))
+			draw_rect(Rect2(mid - 60, dais.position.y + 12, 120, 100), accent.darkened(0.2))
+			draw_colored_polygon(PackedVector2Array([Vector2(mid - 60, dais.position.y + 12), Vector2(mid, dais.position.y - 10),
+					Vector2(mid + 60, dais.position.y + 12)]), accent)
 		"chest":
 			_draw_chest(rect.get_center())
 

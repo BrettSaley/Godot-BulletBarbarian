@@ -1,6 +1,6 @@
 extends Enemy
-## The Obelisk that shields the Wardens in phase 1. It pulses rings of energy
-## and spirals; destroy it to expose the Warden.
+## The Obelisk that shields both Wardens in phase 1. It pulses rings of energy
+## and spirals; destroy it to wake the Wardens.
 
 const ENERGY := Color(0.4, 0.7, 1.0)
 
@@ -11,7 +11,7 @@ func _init() -> void:
 	display_name = "Obelisk"
 	radius = 24.0
 	move_speed = 0.0
-	max_hp = 1500.0
+	max_hp = 1200.0
 	xp = 400
 	bullet_damage = 28.0
 	contact_damage = 0.0

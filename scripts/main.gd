@@ -196,7 +196,8 @@ func _process(delta: float) -> void:
 
 
 ## R escapes to the hub; F11 switches between full screen and a window;
-## 9 cycles the dev modes; 8 drops every UT and GIGA item nearby.
+## 9 cycles the dev modes; 8 drops every UT and GIGA item nearby; 7 unlocks
+## every portal.
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
@@ -212,6 +213,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			hud.show_message(mode_name, 1.5)
 		KEY_8, KEY_KP_8:
 			_drop_all_uniques()
+		KEY_7, KEY_KP_7:
+			_unlock_all_portals()
 
 
 ## Like RotMG's escape to Nexus: straight back to the current realm's hub at full HP and MP,
@@ -225,6 +228,16 @@ func _escape_to_hub() -> void:
 	player.mp = player.max_mp()
 	player.changed.emit()
 	hud.show_message("You escape to %s." % Realms.info(realm).hub, 2.0)
+
+
+## Dev tool: every realm and raid portal opens.
+func _unlock_all_portals() -> void:
+	unlocked_realms = Realms.count()
+	for r in Realms.count():
+		dungeons_done[r] = DUNGEONS_PER_RAID
+	_build_hub_portals()
+	_update_raid_progress()
+	hud.show_message("All portals unlocked.", 2.0)
 
 
 ## Dev tool: one bag per raid and per realm's dungeons, in a row by the player.
