@@ -5,6 +5,8 @@ extends CanvasLayer
 
 signal slot_clicked(slot: ItemSlot, button: int)
 signal character_select_requested
+signal portal_confirmed
+signal portal_declined
 
 const PANEL_BG := Color(0.1, 0.08, 0.07, 0.75)
 
@@ -25,6 +27,9 @@ var stats_label: Label
 var equip_slots := {}
 var inventory_slots: Array[ItemSlot] = []
 var bag_panel: PanelContainer
+var portal_prompt: PanelContainer
+var portal_prompt_label: Label
+var portal_prompt_buttons: HBoxContainer
 var bag_slots: Array[ItemSlot] = []
 var message_label: Label
 var message_timer := 0.0
@@ -43,6 +48,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_build_zone_label()
 	_build_status_panel()
+	_build_portal_prompt()
 	_build_item_panel()
 	_build_message()
 	boss_arrow = Control.new()
@@ -215,6 +221,51 @@ func _build_status_panel() -> void:
 	column.add_child(xp_bar)
 	stats_label = _label("", 13, Color(0.9, 0.9, 0.9))
 	column.add_child(stats_label)
+
+
+## "Enter <portal>?" with Yes/No, just above the status panel. Locked portals
+## show what unlocks them instead.
+func _build_portal_prompt() -> void:
+	portal_prompt = _panel()
+	portal_prompt.anchor_top = 1.0
+	portal_prompt.anchor_bottom = 1.0
+	portal_prompt.offset_left = 10
+	portal_prompt.offset_right = 270
+	portal_prompt.offset_bottom = -150
+	portal_prompt.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	portal_prompt.visible = false
+	add_child(portal_prompt)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 6)
+	portal_prompt.add_child(column)
+	portal_prompt_label = _label("", 15, Color(1, 0.9, 0.6))
+	portal_prompt_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	portal_prompt_label.custom_minimum_size.x = 244
+	column.add_child(portal_prompt_label)
+	portal_prompt_buttons = HBoxContainer.new()
+	portal_prompt_buttons.add_theme_constant_override("separation", 8)
+	column.add_child(portal_prompt_buttons)
+	for entry in [["Yes (E)", portal_confirmed], ["No", portal_declined]]:
+		var button := Button.new()
+		button.text = entry[0]
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		# Never take keyboard focus, or Space (Warcry) would press it.
+		button.focus_mode = Control.FOCUS_NONE
+		button.pressed.connect(entry[1].emit)
+		portal_prompt_buttons.add_child(button)
+
+
+func show_portal_prompt(portal: Portal) -> void:
+	if portal.locked:
+		portal_prompt_label.text = "%s\n%s" % [portal.label, portal.lock_hint]
+	else:
+		portal_prompt_label.text = "Enter %s?" % portal.label
+	portal_prompt_buttons.visible = not portal.locked
+	portal_prompt.visible = true
+
+
+func hide_portal_prompt() -> void:
+	portal_prompt.visible = false
 
 
 func _build_item_panel() -> void:

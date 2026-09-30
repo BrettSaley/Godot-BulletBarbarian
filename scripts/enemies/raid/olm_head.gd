@@ -11,6 +11,8 @@ const FIRE := Color(1.0, 0.45, 0.1)
 const RANGED := Color(0.4, 0.85, 0.35)
 const MAGIC := Color(0.4, 0.55, 1.0)
 const FINAL_PHASE := 3
+## Fire walls come at most this often.
+const FIRE_WALL_COOLDOWN := 25.0
 
 ## Set by the raid.
 var hands: Array = []
@@ -18,6 +20,7 @@ var room: Rect2
 var phase := 1
 var magic_next := false
 var enraged := false
+var fire_wall_timer := FIRE_WALL_COOLDOWN
 
 
 func _init() -> void:
@@ -39,10 +42,12 @@ func hands_alive() -> bool:
 
 
 func _attacks() -> Array:
-	return ["orbs", "orbs", "acid", "fire_wall"]
+	# Fire walls are the Olm's big move: only once the cooldown has passed.
+	return ["orbs", "orbs", "acid"] if fire_wall_timer > 0.0 else ["orbs", "orbs", "acid", "fire_wall"]
 
 
-func _move(_delta: float) -> void:
+func _move(delta: float) -> void:
+	fire_wall_timer -= delta
 	var protected := phase < FINAL_PHASE or hands_alive()
 	if untargetable and not protected:
 		enraged = true
@@ -66,6 +71,7 @@ func _fire(attack_name: String) -> float:
 			return 2.0 * pace
 		"fire_wall":
 			# Walls of fire on both sides of the player: don't touch them.
+			fire_wall_timer = FIRE_WALL_COOLDOWN
 			for offset in [-90.0, 90.0]:
 				var x: float = player.position.x + offset
 				hazards().rect_pool(Rect2(x - 12, room.position.y + 120, 24, room.size.y - 120), 5.0,

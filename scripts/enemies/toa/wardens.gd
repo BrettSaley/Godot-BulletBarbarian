@@ -36,7 +36,7 @@ var tile_timer := 2.0
 func _init() -> void:
 	radius = 30.0
 	move_speed = 0.0
-	max_hp = 2000.0
+	max_hp = 3000.0
 	xp = 900
 	bullet_damage = 34.0
 	contact_damage = 55.0

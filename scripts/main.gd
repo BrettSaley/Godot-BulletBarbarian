@@ -50,6 +50,9 @@ var unlocked_realms := 1
 var current_bag: LootBag
 var shown_bag_size := -1
 var locked_notice_timer := 0.0
+## The portal the enter prompt is asking about, and one the player said No to.
+var prompt_portal: Portal
+var declined_portal: Portal
 var saving := false
 var choosing := false  # on the select or design screen
 var slot := 0
@@ -84,6 +87,8 @@ func _ready() -> void:
 
 	hud.bind_player(player)
 	hud.slot_clicked.connect(_on_slot_clicked)
+	hud.portal_confirmed.connect(_on_portal_confirmed)
+	hud.portal_declined.connect(_on_portal_declined)
 	hud.character_select_requested.connect(_to_character_select)
 
 	# Only the real game saves; test scripts that add Main by hand don't touch the saves.
@@ -166,6 +171,13 @@ func _exit_tree() -> void:
 	_save()
 
 
+## Monsters near the player never stack on top of each other.
+func _physics_process(_delta: float) -> void:
+	var reach := Enemy.SLEEP_DISTANCE * Enemy.SLEEP_DISTANCE
+	Enemy.separate(get_tree().get_nodes_in_group("enemies").filter(func(e):
+		return e.position.distance_squared_to(player.position) < reach))
+
+
 func _process(delta: float) -> void:
 	var bag := _bag_under_player()
 	var bag_size := bag.items.size() if bag else -1
@@ -179,11 +191,7 @@ func _process(delta: float) -> void:
 	if autosave_timer <= 0.0:
 		autosave_timer = AUTOSAVE_INTERVAL
 		_save()
-	if player.is_alive():
-		for portal: Portal in get_tree().get_nodes_in_group("portals"):
-			if not portal.is_queued_for_deletion() and portal.position.distance_to(player.position) < Portal.RADIUS:
-				_take_portal(portal)
-				break
+	_update_portal_prompt()
 
 	if instance is Dungeon:
 		hud.area_name = instance.raid_name()
@@ -195,13 +203,15 @@ func _process(delta: float) -> void:
 		hud.area_name = zone if hub else "%s: %s" % [Realms.info(realm).name, zone]
 
 
-## R escapes to the hub; F11 switches between full screen and a window;
-## 9 cycles the dev modes; 8 drops every UT and GIGA item nearby; 7 unlocks
-## every portal.
+## E enters the portal being asked about; R escapes to the hub; F11 switches
+## between full screen and a window; 9 cycles the dev modes; 8 drops every UT
+## and GIGA item nearby; 7 unlocks every portal.
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
 	match event.keycode:
+		KEY_E:
+			_on_portal_confirmed()
 		KEY_R:
 			_escape_to_hub()
 		KEY_F11:
@@ -253,6 +263,41 @@ func _drop_all_uniques() -> void:
 
 
 # --- Travelling ---
+
+## Standing on a portal asks before entering it. Saying No hides the prompt
+## until you step off and back on.
+func _update_portal_prompt() -> void:
+	var here: Portal = null
+	if player.is_alive():
+		for portal: Portal in get_tree().get_nodes_in_group("portals"):
+			if not portal.is_queued_for_deletion() and portal.position.distance_to(player.position) < Portal.RADIUS:
+				here = portal
+				break
+	if here == null:
+		declined_portal = null
+	if here == declined_portal:
+		here = null
+	if here != prompt_portal:
+		prompt_portal = here
+		if here:
+			hud.show_portal_prompt(here)
+		else:
+			hud.hide_portal_prompt()
+
+
+func _on_portal_confirmed() -> void:
+	if is_instance_valid(prompt_portal) and not prompt_portal.locked:
+		var portal := prompt_portal
+		prompt_portal = null
+		hud.hide_portal_prompt()
+		_take_portal(portal)
+
+
+func _on_portal_declined() -> void:
+	declined_portal = prompt_portal
+	prompt_portal = null
+	hud.hide_portal_prompt()
+
 
 func _take_portal(portal: Portal) -> void:
 	if portal.locked:

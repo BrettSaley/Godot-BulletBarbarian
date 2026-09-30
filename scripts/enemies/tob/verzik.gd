@@ -21,7 +21,7 @@ func _init() -> void:
 	display_name = "Verzik Vitur"
 	radius = 30.0
 	move_speed = 90.0
-	max_hp = 2400.0
+	max_hp = 3600.0
 	xp = 1200
 	bullet_damage = 30.0
 	contact_damage = 50.0

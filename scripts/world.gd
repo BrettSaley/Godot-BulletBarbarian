@@ -23,6 +23,21 @@ static func bounds() -> Rect2:
 	return Rect2(Vector2(20, 20), SIZE - Vector2(40, 40))
 
 
+## The hub circle: monsters can't enter it, their shots stop at its edge, and
+## the player can't attack from inside it. (Raids and dungeons are built far
+## outside the map, so this is never true there.)
+static func in_safe_zone(pos: Vector2, margin := 0.0) -> bool:
+	return pos.distance_to(CENTER) < SAFE_RADIUS + margin
+
+
+## Push `pos` just outside the safe zone (for something of `radius`).
+static func outside_safe_zone(pos: Vector2, radius: float) -> Vector2:
+	var away := pos - CENTER
+	if away.length() < 0.01:
+		away = Vector2.RIGHT
+	return CENTER + away.normalized() * (SAFE_RADIUS + radius)
+
+
 ## -1 inside the safe hub, otherwise 0 to MAX_TIER.
 static func zone_tier(pos: Vector2) -> int:
 	var d := pos.distance_to(CENTER)

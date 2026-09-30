@@ -310,8 +310,9 @@ func _physics_process(delta: float) -> void:
 
 
 func _wants_to_shoot() -> bool:
-	# Clicking on inventory slots shouldn't throw axes.
-	return Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and get_viewport().gui_get_hovered_control() == null
+	# Clicking on inventory slots shouldn't throw axes, and the hub is a safe zone.
+	return Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and get_viewport().gui_get_hovered_control() == null \
+			and not World.in_safe_zone(position)
 
 
 func _throw_axes(dir: Vector2) -> void:

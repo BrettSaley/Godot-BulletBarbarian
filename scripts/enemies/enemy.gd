@@ -57,6 +57,8 @@ static func expected_damage(realm_index: int, zone: int) -> float:
 	return 1.0 + 0.25 * zone
 ## After giving up a chase, a monster ignores the player this long.
 const CALM_TIME := 2.0
+## Space kept between monsters so their art doesn't overlap.
+const SEPARATION_GAP := 6.0
 
 var display_name := "Enemy"
 var radius := 14.0
@@ -190,18 +192,18 @@ func _physics_process(delta: float) -> void:
 	queue_redraw()
 
 	calm_timer -= delta
-	if not aggro and calm_timer <= 0.0 and to_player < aggro_range:
+	# A player in the hub's safe zone can't be hunted.
+	var player_safe := World.in_safe_zone(player.position)
+	if not aggro and calm_timer <= 0.0 and to_player < aggro_range and not player_safe:
 		aggro = true
 		target = pick_wander_target()
-	elif aggro and (to_player > aggro_range * 1.5 or position.distance_to(home) > leash_range):
+	elif aggro and (player_safe or to_player > aggro_range * 1.5 or position.distance_to(home) > leash_range):
 		aggro = false
 		attack = ""
 		calm_timer = CALM_TIME
 		target = home
 	_move(delta)
-	if bounds.has_area():
-		var margin := Vector2.ONE * minf(radius, minf(bounds.size.x, bounds.size.y) * 0.5)
-		position = position.clamp(bounds.position + margin, bounds.end - margin)
+	keep_in_bounds()
 
 	if contact_damage > 0.0 and contact_timer <= 0.0 and not untargetable and touches(player.position, player.hitbox_radius):
 		player.take_damage(contact_damage, display_name)
@@ -228,6 +230,42 @@ func _physics_process(delta: float) -> void:
 	fire_timer -= delta
 	if fire_timer <= 0.0:
 		fire_timer = _fire(attack)
+
+
+## Stay out of the hub's safe zone, and inside `bounds` (raid and dungeon rooms).
+func keep_in_bounds() -> void:
+	if World.in_safe_zone(position, radius):
+		position = World.outside_safe_zone(position, radius)
+	if bounds.has_area():
+		var margin := Vector2.ONE * minf(radius, minf(bounds.size.x, bounds.size.y) * 0.5)
+		position = position.clamp(bounds.position + margin, bounds.end - margin)
+
+
+## Nudge overlapping monsters apart so they never stack. Stationary ones
+## (bosses rooted in place) hold their ground and push the others away;
+## untargetable ones (dived, burrowed, tornadoes) are left alone.
+static func separate(enemies: Array) -> void:
+	var solid := enemies.filter(func(e): return is_instance_valid(e) and e.hp > 0.0 and not e.untargetable)
+	for i in solid.size():
+		var a: Enemy = solid[i]
+		for j in range(i + 1, solid.size()):
+			var b: Enemy = solid[j]
+			var gap := b.position - a.position
+			var overlap := a.radius + b.radius + SEPARATION_GAP - gap.length()
+			if overlap <= 0.0:
+				continue
+			var dir := gap.normalized() if gap.length() > 0.01 else Vector2.RIGHT.rotated(randf() * TAU)
+			var a_moves := a.move_speed > 0.0
+			var b_moves := b.move_speed > 0.0
+			if a_moves and b_moves:
+				a.position -= dir * overlap * 0.5
+				b.position += dir * overlap * 0.5
+			elif a_moves:
+				a.position -= dir * overlap
+			elif b_moves:
+				b.position += dir * overlap
+	for e: Enemy in solid:
+		e.keep_in_bounds()
 
 
 # --- Overridable hooks ---

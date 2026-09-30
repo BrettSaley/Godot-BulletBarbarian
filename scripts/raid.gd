@@ -203,7 +203,6 @@ func _physics_process(delta: float) -> void:
 				if room.rect.grow(-40).has_point(player.position):
 					_start(room)
 			"fighting":
-				_separate(room)
 				match room.kind:
 					"vanguards":
 						_balance_vanguards(room)
@@ -506,23 +505,6 @@ func _draw_chest(c: Vector2) -> void:
 	if not chest_opened_already:
 		draw_string(ThemeDB.fallback_font, c + Vector2(-80, -40), "Walk here to claim",
 				HORIZONTAL_ALIGNMENT_CENTER, 160, 13, Color(1, 0.9, 0.6))
-
-
-## Keep a room's monsters from stacking on top of each other: any two that
-## overlap are nudged apart.
-func _separate(room: Dictionary) -> void:
-	var movers: Array = get_tree().get_nodes_in_group("raid_enemies").filter(func(e):
-		return is_instance_valid(e) and e.move_speed > 0.0 and room.rect.has_point(e.position))
-	for i in movers.size():
-		for j in range(i + 1, movers.size()):
-			var a: Enemy = movers[i]
-			var b: Enemy = movers[j]
-			var gap := b.position - a.position
-			var overlap := a.radius + b.radius - gap.length()
-			if overlap > 0.0:
-				var push := (gap.normalized() if gap.length() > 0.01 else Vector2.RIGHT.rotated(randf() * TAU)) * overlap * 0.5
-				a.position -= push
-				b.position += push
 
 
 func _roll_chest() -> void:

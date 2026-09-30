@@ -83,7 +83,7 @@ func _physics_process(delta: float) -> void:
 		positions[i] += velocities[i] * delta
 		angles[i] += spins[i] * delta
 		lifetimes[i] -= delta
-		if lifetimes[i] <= 0.0 or _in_wall(positions[i]):
+		if lifetimes[i] <= 0.0 or _in_wall(positions[i]) or (targets_player and World.in_safe_zone(positions[i])):
 			_remove(i)
 		elif targets_player:
 			if player.is_alive() and positions[i].distance_to(player.position) < radii[i] + player.hitbox_radius:
