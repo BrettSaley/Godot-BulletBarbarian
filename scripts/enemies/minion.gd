@@ -51,6 +51,8 @@ const KINDS := {
 	"baby_black_dragon": {"name": "Baby Black Dragon", "radius": 13.0, "hp": 150.0, "speed": 95.0, "color": Color(0.2, 0.18, 0.22), "behavior": "ranged", "shape": "bat"},
 	"abyssal_walker": {"name": "Abyssal Walker", "radius": 16.0, "hp": 260.0, "speed": 70.0, "color": Color(0.45, 0.15, 0.25), "behavior": "chase", "shape": "golem"},
 	"abyssal_leech": {"name": "Abyssal Leech", "radius": 11.0, "hp": 110.0, "speed": 120.0, "color": Color(0.55, 0.2, 0.3), "behavior": "chase", "shape": "blob"},
+	"abyssal_demon": {"name": "Abyssal Demon", "radius": 16.0, "hp": 280.0, "speed": 105.0, "color": Color(0.45, 0.12, 0.35), "behavior": "chase", "shape": "shadow"},
+	"abyssal_guardian": {"name": "Abyssal Guardian", "radius": 15.0, "hp": 230.0, "speed": 60.0, "color": Color(0.6, 0.18, 0.2), "behavior": "ranged", "shape": "golem"},
 	"scorpion": {"name": "Scorpion", "radius": 12.0, "hp": 130.0, "speed": 100.0, "color": Color(0.35, 0.25, 0.15), "behavior": "chase", "shape": "bug"},
 	"king_scorpion": {"name": "King Scorpion", "radius": 16.0, "hp": 250.0, "speed": 80.0, "color": Color(0.5, 0.35, 0.15), "behavior": "ranged", "shape": "bug"},
 	"tornado": {"name": "Purple Tornado", "radius": 14.0, "hp": 1.0, "speed": 70.0, "color": Color(0.6, 0.3, 0.8), "behavior": "tornado", "shape": "tornado"},

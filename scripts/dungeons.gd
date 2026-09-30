@@ -13,7 +13,8 @@ const BlackDemon := preload("res://scripts/enemies/wilderness/black_demon.gd")
 const LavaDragon := preload("res://scripts/enemies/wilderness/lava_dragon.gd")
 
 ## Each dungeon: realm, name, boss script, unique, floor/wall colours, and
-## the monsters on the path (Minion kinds as strings, or enemy scripts).
+## the monsters on the path (Minion kinds as strings, or enemy scripts), and
+## optionally how many monster packs fill each room.
 const DATA := {
 	# --- Lumbridge ---
 	"kalphite_lair": {"realm": 0, "name": "Kalphite Lair", "boss": preload("res://scripts/enemies/dungeon/kalphite_queen.gd"),
@@ -50,7 +51,8 @@ const DATA := {
 			"monsters": [Revenant, Revenant, Skeleton, "ghost"]},
 	"abyssal_nexus": {"realm": 2, "name": "The Abyssal Nexus", "boss": preload("res://scripts/enemies/dungeon/abyssal_sire.gd"),
 			"unique": "abyssal_crown", "floor": Color(0.3, 0.14, 0.18), "wall": Color(0.1, 0.03, 0.05),
-			"monsters": ["abyssal_leech", "abyssal_leech", "abyssal_walker", BlackDemon]},
+			"monsters": ["abyssal_leech", "abyssal_leech", "abyssal_spawn", "abyssal_walker", "abyssal_demon", "abyssal_guardian"],
+			"packs": 3},
 	"scorpia_cave": {"realm": 2, "name": "Scorpia's Cave", "boss": preload("res://scripts/enemies/dungeon/scorpia.gd"),
 			"unique": "malediction_ward", "floor": Color(0.36, 0.3, 0.2), "wall": Color(0.14, 0.1, 0.06),
 			"monsters": ["scorpion", "scorpion", "king_scorpion", Skeleton]},

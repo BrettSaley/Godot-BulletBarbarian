@@ -6,9 +6,10 @@ extends RefCounted
 ## Black and Mithril, then Barrows, the Guthix, Saradomin and Zamorak god
 ## armours, Armadyl, Bandos, Oathplate and Torva (16), with real OSRS names.
 ## Bronze is starting gear only and never drops. Each realm drops a band:
-##   Lumbridge   monsters Iron-Dragon,   bosses Adamant-Dragon,  CoX chest Dragon
-##   God Wars    monsters Rune-Bandos,   bosses Barrows-Bandos,  ToB chest Bandos
-##   Wilderness  monsters Zamorak-Torva, bosses Bandos-Torva,    ToA chest Torva
+##   Lumbridge   monsters Iron-Dragon,    bosses Barrows-Guthix,  CoX chest Guthix
+##   God Wars    monsters Rune-Zamorak,   bosses Armadyl-Bandos,  ToB chest Bandos
+##   Wilderness  monsters Zamorak-Bandos, bosses Oathplate-Torva, ToA chest Torva
+## Bosses (world and dungeon) drop the two tiers above their realm's best monster drop.
 ## Dungeon uniques (UT, white bags) drop from dungeon bosses and sit just above
 ## their realm's best tier. Raid uniques are their own GIGA tier (gold bags),
 ## only from raid chests, better than anything else and all equally strong.
@@ -76,7 +77,7 @@ const STAT_LABELS := {
 }
 
 ## Tier bands each realm drops: [monster min, monster max, boss min, boss max, chest].
-const REALM_TIERS := [[1, 8, 6, 8, 8], [7, 14, 9, 14, 14], [12, 16, 14, 16, 16]]
+const REALM_TIERS := [[1, 8, 9, 10, 10], [7, 12, 13, 14, 14], [12, 14, 15, 16, 16]]
 const PURPLE_CHANCE := 0.5
 ## Each raid: three weapons, then one armour, helm and accessory.
 const RAID_UNIQUES := {
@@ -391,27 +392,27 @@ const DUNGEON_UNIQUE_CHANCE := 0.5
 
 
 ## Dungeon uniques (UT): one per dungeon, a little better than their realm's
-## best tiered gear. Lumbridge's beat Dragon, God Wars' beat Bandos, and the
+## best tiered gear. Lumbridge's beat Guthix, God Wars' beat Bandos, and the
 ## Wilderness's beat Torva - but none reach the raids' GIGA items.
 static func dungeon_unique(id: String) -> Dictionary:
 	var item: Dictionary
 	match id:
 		# --- Lumbridge dungeons ---
 		"dragon_chainbody":
-			item = {"name": "Dragon Chainbody", "slot": "armor", "stats": {"defense": 24, "hp": 90, "dexterity": 2},
+			item = {"name": "Dragon Chainbody", "slot": "armor", "stats": {"defense": 30, "hp": 118, "dexterity": 2},
 					"note": "Kalphite Queen. Light, strong dragon mail."}
 		"sarachnis_chitin_helm":
-			item = {"name": "Sarachnis Chitin Helm", "slot": "ability", "stats": {"defense": 4, "hp": 30},
-					"warcry": {"duration": 5.5, "damage_bonus": 0.48, "speed_bonus": 0.2, "mp_cost": 55},
+			item = {"name": "Sarachnis Chitin Helm", "slot": "ability", "stats": {"defense": 5, "hp": 30},
+					"warcry": {"duration": 6.0, "damage_bonus": 0.53, "speed_bonus": 0.2, "mp_cost": 60},
 					"color": Color(0.45, 0.35, 0.3),
 					"note": "Sarachnis. Carved from her shed carapace."}
 		"trident_of_the_seas":
 			item = {"name": "Trident of the Seas", "slot": "weapon", "style": Projectiles.Style.ORB,
-					"damage_min": 270, "damage_max": 315, "shots": 1, "range": 520.0, "speed": 640.0, "rate": 1.2,
+					"damage_min": 350, "damage_max": 410, "shots": 1, "range": 520.0, "speed": 640.0, "rate": 1.2,
 					"size": 13.0, "color": Color(0.3, 0.8, 0.85),
 					"note": "Kraken. Bolts of tidal magic."}
 		"fire_cape":
-			item = {"name": "Fire Cape", "slot": "ring", "stats": {"attack": 6, "hp": 80},
+			item = {"name": "Fire Cape", "slot": "ring", "stats": {"attack": 8, "hp": 120},
 					"color": Color(1.0, 0.45, 0.1),
 					"note": "TzTok-Jad. Proof you survived the Fight Caves."}
 		# --- God Wars dungeons ---

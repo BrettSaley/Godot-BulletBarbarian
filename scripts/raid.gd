@@ -157,6 +157,18 @@ func chest_position() -> Vector2:
 
 ## Where the player may walk: sealed inside a room during a fight, otherwise
 ## every room up to and including the next unfinished one.
+## Everywhere inside the walls, including the Olm's wall and the Wardens' dais
+## (so shots can reach them): shots that leave these hit a wall.
+func open_areas() -> Array[Rect2]:
+	var rects: Array[Rect2] = []
+	for room in rooms:
+		rects.append(room.rect)
+	for corridor in corridors:
+		# Corridors only touch the rooms' edges; overlap a little so shots pass.
+		rects.append(corridor.grow_individual(4, 0, 4, 0))
+	return rects
+
+
 func walkable() -> Array[Rect2]:
 	var rects: Array[Rect2] = []
 	for room in rooms:

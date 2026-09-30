@@ -15,6 +15,9 @@ const BOSS_TIER := 6
 ## Bosses that move around their spawn (like Zulrah's swamp spots) need room to
 ## stay inside the map.
 const BOSS_EDGE_MARGIN := 350.0
+## World boss health multiplier per realm: Lumbridge's are lighter so the
+## first boss kill comes sooner.
+const BOSS_HP := [0.75, 1.0, 1.0]
 
 ## Set by the main scene.
 var enemy_parent: Node2D
@@ -76,6 +79,8 @@ func _spawn_boss() -> void:
 	var pick: int = ShuffleBag.next(boss_queues[realm], range(bosses.size()), last_bosses[realm])
 	last_bosses[realm] = pick
 	boss = _spawn(bosses[pick], _spawn_point(BOSS_TIER, BOSS_EDGE_MARGIN), BOSS_TIER)
+	boss.max_hp *= BOSS_HP[realm]
+	boss.hp = boss.max_hp
 	boss_spawned.emit(boss)
 
 

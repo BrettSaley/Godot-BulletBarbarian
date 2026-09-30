@@ -289,6 +289,7 @@ func _travel_to_realm(target: int) -> void:
 			if not World.bounds().has_point(leftover.position):
 				leftover.queue_free()
 	_clear_combat()
+	_set_shot_walls([])
 	if target != realm or spawner.spawned.is_empty():
 		realm = target
 		world.set_realm(realm)
@@ -345,6 +346,12 @@ func _build_hub_portals() -> void:
 		portals.add_child(portal)
 
 
+## Shots from both sides stop at walls: inside `areas` only (none = no walls).
+func _set_shot_walls(areas: Array[Rect2]) -> void:
+	player_shots.open_areas = areas
+	enemy_shots.open_areas = areas
+
+
 ## Enter a raid or dungeon (both share the same interface).
 func _enter_instance(new_instance: Node2D, id: String) -> void:
 	_clear_combat()
@@ -354,6 +361,7 @@ func _enter_instance(new_instance: Node2D, id: String) -> void:
 	add_child(instance)
 	move_child(instance, world.get_index() + 1)
 	instance.build(id, player, enemy_shots, enemies)
+	_set_shot_walls(instance.open_areas())
 	instance.enemy_died.connect(_on_enemy_died)
 	instance.walkable_changed.connect(func(rects: Array[Rect2]): player.walkable = rects)
 	instance.announce.connect(func(text: String): hud.show_message(text, 3.0))

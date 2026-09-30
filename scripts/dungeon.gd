@@ -23,6 +23,8 @@ const DOORWAY_OVERLAP := 30.0
 ## Monsters and boss scale like the realm's outermost zone.
 const DUNGEON_TIER := 6
 const MOB_AGGRO := 420.0
+## Monster packs per room (a dungeon can set its own "packs").
+const PACKS_PER_ROOM := 2
 
 var dungeon_id := ""
 var data: Dictionary
@@ -47,7 +49,7 @@ func build(id: String, target_player: Node2D, shot_layer: Node2D, enemy_layer: N
 	enemy_parent = enemy_layer
 	_lay_out()
 	for i in range(1, rooms.size() - 1):
-		for pack in 2:
+		for pack in data.get("packs", PACKS_PER_ROOM):
 			_spawn_pack(rooms[i])
 	_spawn_boss()
 	queue_redraw()
@@ -146,6 +148,13 @@ func bounds() -> Rect2:
 
 
 ## The whole dungeon is open from the start.
+## Everywhere inside the walls: shots that leave these hit a wall.
+func open_areas() -> Array[Rect2]:
+	var rects: Array[Rect2] = rooms.duplicate()
+	rects.append_array(corridors)
+	return rects
+
+
 func walkable() -> Array[Rect2]:
 	var rects: Array[Rect2] = []
 	for room in rooms:

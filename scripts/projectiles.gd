@@ -33,6 +33,9 @@ var sources: Array[String] = []
 
 ## Set by the main scene.
 var player: Node2D
+## Inside a raid or dungeon: the open floor. A shot that leaves it has hit a
+## wall and is destroyed. Empty in the overworld, which has no walls.
+var open_areas: Array[Rect2] = []
 
 ## Lumpy unit-radius outlines, picked at random for each rock.
 var rock_shapes: Array[PackedVector2Array] = []
@@ -80,7 +83,7 @@ func _physics_process(delta: float) -> void:
 		positions[i] += velocities[i] * delta
 		angles[i] += spins[i] * delta
 		lifetimes[i] -= delta
-		if lifetimes[i] <= 0.0:
+		if lifetimes[i] <= 0.0 or _in_wall(positions[i]):
 			_remove(i)
 		elif targets_player:
 			if player.is_alive() and positions[i].distance_to(player.position) < radii[i] + player.hitbox_radius:
@@ -96,6 +99,15 @@ func _physics_process(delta: float) -> void:
 					break
 		i -= 1
 	queue_redraw()
+
+
+func _in_wall(pos: Vector2) -> bool:
+	if open_areas.is_empty():
+		return false
+	for rect in open_areas:
+		if rect.has_point(pos):
+			return false
+	return true
 
 
 func _remove(i: int) -> void:
