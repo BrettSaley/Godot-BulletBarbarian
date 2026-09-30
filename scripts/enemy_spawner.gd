@@ -2,7 +2,7 @@ extends Node
 ## Keeps every zone of the current realm stocked with packs of that realm's
 ## monsters, spawned out of the player's sight, and keeps one of the realm's
 ## world bosses roaming the outermost zone. A slain boss is replaced after a
-## delay, never by the same kind twice in a row.
+## delay, cycling through all the realm's bosses before any repeats.
 
 signal enemy_died(enemy: Enemy)
 signal boss_spawned(boss: Enemy)
@@ -25,7 +25,9 @@ var realm := Realms.LUMBRIDGE
 var counts := [0, 0, 0, 0, 0, 0, 0]
 var spawned: Array[Enemy] = []
 var boss: Enemy
-var last_boss := -1
+## Per realm: bosses left in the current rotation, and the last one spawned.
+var boss_queues := [[], [], []]
+var last_bosses := [-1, -1, -1]
 var boss_timer := 5.0
 var check_timer := 0.0
 ## Stops spawning while the player is off in a raid.
@@ -41,7 +43,6 @@ func set_realm(realm_index: int) -> void:
 	counts = [0, 0, 0, 0, 0, 0, 0]
 	realm = realm_index
 	boss = null
-	last_boss = -1
 	boss_timer = 5.0
 	check_timer = 0.0
 
@@ -72,10 +73,9 @@ func _spawn_pack(tier: int) -> void:
 
 func _spawn_boss() -> void:
 	var bosses: Array = Realms.info(realm).bosses
-	var options := range(bosses.size())
-	options.erase(last_boss)
-	last_boss = options.pick_random()
-	boss = _spawn(bosses[last_boss], _spawn_point(BOSS_TIER, BOSS_EDGE_MARGIN), BOSS_TIER)
+	var pick: int = ShuffleBag.next(boss_queues[realm], range(bosses.size()), last_bosses[realm])
+	last_bosses[realm] = pick
+	boss = _spawn(bosses[pick], _spawn_point(BOSS_TIER, BOSS_EDGE_MARGIN), BOSS_TIER)
 	boss_spawned.emit(boss)
 
 

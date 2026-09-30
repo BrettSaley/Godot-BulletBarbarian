@@ -380,7 +380,7 @@ func set_raid_progress(done: int, needed: int, raid_title: String) -> void:
 func _draw_raid_progress() -> void:
 	var font := ThemeDB.fallback_font
 	var ready := raid_progress_done >= raid_progress_needed
-	var label := "Next world boss opens the %s!" % raid_progress_name if ready \
+	var label := "The %s portal is open in the hub!" % raid_progress_name if ready \
 			else "Dungeons to unlock the %s:" % raid_progress_name
 	var color := Color(1, 0.85, 0.3) if ready else Color(0.9, 0.9, 0.9)
 	raid_progress.draw_string_outline(font, Vector2(0, 14), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, 4, Color(0, 0, 0))

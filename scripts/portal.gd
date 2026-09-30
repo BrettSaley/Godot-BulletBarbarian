@@ -1,8 +1,8 @@
 class_name Portal
 extends Node2D
 ## A swirling portal the player walks into. World bosses drop one leading to
-## their realm's raid, each raid's final room has one leading home, and each
-## realm's hub has one to every other realm (locked until unlocked).
+## a dungeon, raids and dungeons have one leading home, and each realm's hub
+## has one to every other realm and one to each raid (locked until unlocked).
 
 const RADIUS := 26.0
 

@@ -11,7 +11,7 @@ extends Node2D
 ## Tombs of Amascut are the last raid. Every realm's hub has portals to the
 ## others; unlocked realms can always be revisited.
 
-const RAID_PORTAL_LIFETIME := 60.0
+const DUNGEON_PORTAL_LIFETIME := 60.0
 const DUNGEONS_PER_RAID := 2
 const AUTOSAVE_INTERVAL := 30.0
 ## Screen pixels per world pixel. Fixed, so a bigger window shows more of the
@@ -19,7 +19,9 @@ const AUTOSAVE_INTERVAL := 30.0
 const VIEW_SCALE := 1600.0 / 960.0
 const MIN_WINDOW := Vector2i(1280, 720)
 ## Where the realm portals stand around each hub's campfire.
-const HUB_PORTAL_OFFSETS := [Vector2(-170, -40), Vector2(170, -40), Vector2(0, -190)]
+const REALM_PORTAL_OFFSETS := [Vector2(-170, -40), Vector2(170, -40)]
+## Raid portals sit in an arc below the campfire, CoX to ToA from left to right.
+const RAID_PORTAL_OFFSETS := [Vector2(-150, 140), Vector2(0, 205), Vector2(150, 140)]
 const HUB_PORTAL_COLORS := [Color(0.45, 0.85, 0.4), Color(0.6, 0.85, 1.0), Color(0.9, 0.3, 0.25)]
 
 @onready var world: World = $World
@@ -39,6 +41,9 @@ var instance: Node2D
 var realm := Realms.LUMBRIDGE
 ## Dungeons cleared per realm toward the next raid portal.
 var dungeons_done := [0, 0, 0]
+## Per realm: dungeons left in the current rotation, and the last one opened.
+var dungeon_queues := [[], [], []]
+var last_dungeon := ["", "", ""]
 ## How many realms this Barbarian has unlocked (1 = only Lumbridge).
 var unlocked_realms := 1
 var current_bag: LootBag
@@ -110,6 +115,10 @@ func _on_slot_chosen(chosen_slot: int) -> void:
 	player.load_save(save.player)
 	unlocked_realms = save.unlocked_realms
 	dungeons_done = save.dungeons_done
+	last_dungeon = save.get("last_dungeon", last_dungeon)
+	dungeon_queues = save.get("dungeon_queues", dungeon_queues)
+	spawner.boss_queues = save.get("boss_queues", spawner.boss_queues)
+	spawner.last_bosses = save.get("last_bosses", spawner.last_bosses)
 	get_tree().paused = false
 	choosing = false
 	_travel_to_realm(save.realm)
@@ -142,7 +151,9 @@ func _save() -> void:
 	if not saving or choosing or not player.is_alive():
 		return
 	SaveGame.write(slot, {"player": player.to_save(), "realm": realm, "unlocked_realms": unlocked_realms,
-			"dungeons_done": dungeons_done.duplicate()})
+			"dungeons_done": dungeons_done.duplicate(), "last_dungeon": last_dungeon.duplicate(),
+			"dungeon_queues": dungeon_queues.duplicate(true), "boss_queues": spawner.boss_queues.duplicate(true),
+			"last_bosses": spawner.last_bosses.duplicate()})
 
 
 ## Also covers quitting from the pause menu or closing the window.
@@ -236,7 +247,7 @@ func _take_portal(portal: Portal) -> void:
 		"raid":
 			portal.queue_free()
 			# Progress toward the raid is kept until it's completed, so leaving
-			# early means the next world boss opens it again.
+			# early leaves its hub portal open.
 			_enter_instance(Raid.new(), parts[1])
 		"dungeon":
 			portal.queue_free()
@@ -294,9 +305,26 @@ func _build_hub_portals() -> void:
 		portal.color = HUB_PORTAL_COLORS[target]
 		portal.locked = target >= unlocked_realms
 		portal.lock_hint = "Complete the %s to unlock" % Realms.info(target - 1).raid_name if target > 0 else ""
-		portal.position = World.CENTER + HUB_PORTAL_OFFSETS[slot]
+		portal.position = World.CENTER + REALM_PORTAL_OFFSETS[slot]
 		portals.add_child(portal)
 		slot += 1
+	# One portal per raid; each opens once its realm has enough dungeons done
+	# and stays open until that raid is completed.
+	for raid_realm in Realms.count():
+		var data := Realms.info(raid_realm)
+		var portal := Portal.new()
+		portal.add_to_group("hub_portals")
+		portal.label = data.raid_name
+		portal.destination = "raid:%s" % data.raid
+		portal.color = data.portal_color
+		if raid_realm >= unlocked_realms:
+			portal.locked = true
+			portal.lock_hint = "Unlock %s first" % data.name
+		elif dungeons_done[raid_realm] < DUNGEONS_PER_RAID:
+			portal.locked = true
+			portal.lock_hint = "%s dungeons cleared: %d/%d" % [data.name, dungeons_done[raid_realm], DUNGEONS_PER_RAID]
+		portal.position = World.CENTER + RAID_PORTAL_OFFSETS[raid_realm]
+		portals.add_child(portal)
 
 
 ## Enter a raid or dungeon (both share the same interface).
@@ -330,7 +358,7 @@ func _on_dungeon_boss_defeated(pos: Vector2, drop: Dictionary) -> void:
 	dungeons_done[realm] = mini(dungeons_done[realm] + 1, DUNGEONS_PER_RAID)
 	_update_raid_progress()
 	if dungeons_done[realm] >= DUNGEONS_PER_RAID:
-		hud.show_message("The next world boss will open the %s!" % Realms.info(realm).raid_name, 4.0)
+		hud.show_message("The %s portal is open at %s!" % [Realms.info(realm).raid_name, Realms.info(realm).hub], 4.0)
 	_spawn_exit(pos, instance.realm, Vector2(0, 110))
 
 
@@ -410,20 +438,16 @@ func _on_enemy_died(enemy: Enemy) -> void:
 	if not drops.is_empty():
 		_spawn_bag(enemy.position, drops)
 	if enemy.is_boss:
-		# World bosses open a dungeon, or the raid once enough dungeons are done.
-		var data := Realms.info(realm)
+		# World bosses always open a dungeon, cycling through all four before
+		# any repeats; the raid portals wait in the hub.
 		var portal := Portal.new()
-		if dungeons_done[realm] >= DUNGEONS_PER_RAID:
-			portal.label = data.raid_name
-			portal.destination = "raid:%s" % data.raid
-			portal.color = data.portal_color
-		else:
-			var dungeon_id: String = Dungeons.for_realm(realm).pick_random()
-			portal.label = Dungeons.info(dungeon_id).name
-			portal.destination = "dungeon:%s" % dungeon_id
-			portal.color = Color(0.9, 0.9, 0.95)
+		var dungeon_id: String = ShuffleBag.next(dungeon_queues[realm], Dungeons.for_realm(realm), last_dungeon[realm])
+		last_dungeon[realm] = dungeon_id
+		portal.label = Dungeons.info(dungeon_id).name
+		portal.destination = "dungeon:%s" % dungeon_id
+		portal.color = Color(0.9, 0.9, 0.95)
 		hud.show_message("%s has been slain! A portal to %s opens." % [enemy.display_name, portal.label], 4.0)
-		portal.lifetime = RAID_PORTAL_LIFETIME
+		portal.lifetime = DUNGEON_PORTAL_LIFETIME
 		portal.position = enemy.position + Vector2(0, -70)
 		portals.add_child(portal)
 
