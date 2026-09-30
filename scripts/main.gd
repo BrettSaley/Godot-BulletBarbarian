@@ -39,7 +39,8 @@ var camera: Camera2D
 ## The raid or dungeon the player is in (null in the overworld).
 var instance: Node2D
 var realm := Realms.LUMBRIDGE
-## Dungeons cleared per realm toward the next raid portal.
+## Dungeons cleared per realm toward its raid portal, which opens for good at
+## DUNGEONS_PER_RAID.
 var dungeons_done := [0, 0, 0]
 ## Per realm: dungeons left in the current rotation, and the last one opened.
 var dungeon_queues := [[], [], []]
@@ -115,6 +116,10 @@ func _on_slot_chosen(chosen_slot: int) -> void:
 	player.load_save(save.player)
 	unlocked_realms = save.unlocked_realms
 	dungeons_done = save.dungeons_done
+	# Older saves reset progress after a raid; a raid that unlocked the next
+	# realm was clearly opened, so keep its portal open.
+	for r in unlocked_realms - 1:
+		dungeons_done[r] = maxi(dungeons_done[r], DUNGEONS_PER_RAID)
 	last_dungeon = save.get("last_dungeon", last_dungeon)
 	dungeon_queues = save.get("dungeon_queues", dungeon_queues)
 	spawner.boss_queues = save.get("boss_queues", spawner.boss_queues)
@@ -246,8 +251,8 @@ func _take_portal(portal: Portal) -> void:
 	match parts[0]:
 		"raid":
 			portal.queue_free()
-			# Progress toward the raid is kept until it's completed, so leaving
-			# early leaves its hub portal open.
+			# Raid portals stay open once unlocked; leaving or finishing the
+			# raid never closes its hub portal.
 			_enter_instance(Raid.new(), parts[1])
 		"dungeon":
 			portal.queue_free()
@@ -309,7 +314,7 @@ func _build_hub_portals() -> void:
 		portals.add_child(portal)
 		slot += 1
 	# One portal per raid; each opens once its realm has enough dungeons done
-	# and stays open until that raid is completed.
+	# and then stays open for good.
 	for raid_realm in Realms.count():
 		var data := Realms.info(raid_realm)
 		var portal := Portal.new()
@@ -355,9 +360,10 @@ func _on_dungeon_boss_defeated(pos: Vector2, drop: Dictionary) -> void:
 	_spawn_bag(pos, drop.loot)
 	if drop.unique != null:
 		_spawn_bag(pos + Vector2(50, 0), [drop.unique])
+	var was_open: bool = dungeons_done[realm] >= DUNGEONS_PER_RAID
 	dungeons_done[realm] = mini(dungeons_done[realm] + 1, DUNGEONS_PER_RAID)
 	_update_raid_progress()
-	if dungeons_done[realm] >= DUNGEONS_PER_RAID:
+	if not was_open and dungeons_done[realm] >= DUNGEONS_PER_RAID:
 		hud.show_message("The %s portal is open at %s!" % [Realms.info(realm).raid_name, Realms.info(realm).hub], 4.0)
 	_spawn_exit(pos, instance.realm, Vector2(0, 110))
 
@@ -413,9 +419,6 @@ func _on_raid_chest_opened(pos: Vector2, loot: Array) -> void:
 	var raid_realm: int = instance.realm
 	# Completing a raid raises the level cap: CoX to 40, ToB to 60.
 	player.raise_level_cap(40 + 20 * raid_realm)
-	# Completing it uses up the dungeon progress; it's two more dungeons to the next.
-	dungeons_done[raid_realm] = 0
-	_update_raid_progress()
 	var message := "A purple! %s" % loot[0].name if purple else "The chest holds the finest gear of %s." % Realms.info(raid_realm).name
 	var next_realm := raid_realm + 1
 	if next_realm < Realms.count() and next_realm >= unlocked_realms:
