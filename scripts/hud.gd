@@ -36,6 +36,7 @@ var message_timer := 0.0
 var boss_arrow: Control
 var death_panel: Control
 var dev_label: Label
+var dev_marks_label: Label
 var pause_menu: ColorRect
 var raid_progress: Control
 var raid_progress_done := 0
@@ -72,7 +73,30 @@ func _process(delta: float) -> void:
 	boss_arrow.queue_redraw()
 
 
+## Permanent note in the top-right corner: which dev tools this character has
+## ever used. It never goes away for that character.
+func _refresh_dev_marks() -> void:
+	if player.dev_marks.is_empty():
+		if dev_marks_label:
+			dev_marks_label.visible = false
+		return
+	if dev_marks_label == null:
+		dev_marks_label = _label("", 13, Color(1, 0.45, 0.4))
+		dev_marks_label.anchor_left = 1.0
+		dev_marks_label.anchor_right = 1.0
+		dev_marks_label.offset_left = -420
+		dev_marks_label.offset_right = -12
+		dev_marks_label.offset_top = 8
+		dev_marks_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		dev_marks_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		dev_marks_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(dev_marks_label)
+	dev_marks_label.text = "Dev tools used: %s" % ", ".join(player.dev_marks)
+	dev_marks_label.visible = true
+
+
 func refresh() -> void:
+	_refresh_dev_marks()
 	if player.at_final_level():
 		level_label.text = "%s   Score %d" % [player.character_name, player.score()]
 	else:

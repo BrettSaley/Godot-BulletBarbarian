@@ -65,6 +65,9 @@ var warcry := {}
 var character_name := "Barbarian"
 var look := {}
 var palette := BarbarianArt.HERO
+## Dev tools this character has ever used. Permanent: saved with the
+## character and shown on screen for good.
+var dev_marks: Array[String] = []
 
 
 func _ready() -> void:
@@ -75,6 +78,13 @@ func _ready() -> void:
 
 # --- Saving ---
 
+## Permanently mark this character as having used a dev tool.
+func mark_dev(tool_name: String) -> void:
+	if tool_name not in dev_marks:
+		dev_marks.append(tool_name)
+		changed.emit()
+
+
 func set_look(new_name: String, new_look: Dictionary) -> void:
 	character_name = new_name
 	look = new_look
@@ -84,7 +94,8 @@ func set_look(new_name: String, new_look: Dictionary) -> void:
 
 func to_save() -> Dictionary:
 	return {"name": character_name, "look": look, "level": level, "xp": xp, "total_xp": total_xp,
-			"level_cap": level_cap, "equipment": equipment.duplicate(true), "inventory": inventory.duplicate(true)}
+			"level_cap": level_cap, "equipment": equipment.duplicate(true), "inventory": inventory.duplicate(true),
+			"dev_marks": dev_marks.duplicate()}
 
 
 func load_save(data: Dictionary) -> void:
@@ -95,6 +106,7 @@ func load_save(data: Dictionary) -> void:
 	level_cap = data.level_cap
 	equipment = data.equipment
 	inventory = data.inventory
+	dev_marks.assign(data.get("dev_marks", []))
 	inventory.resize(INVENTORY_SIZE)
 	hp = max_hp()
 	mp = max_mp()

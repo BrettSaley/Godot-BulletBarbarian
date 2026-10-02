@@ -14,6 +14,8 @@ extends Node2D
 const DUNGEON_PORTAL_LIFETIME := 60.0
 const DUNGEONS_PER_RAID := 2
 const AUTOSAVE_INTERVAL := 30.0
+## How each dev mode is recorded on the character that used it.
+const DEV_MARKS := ["", "Strong mode", "God mode"]
 ## Screen pixels per world pixel. Fixed, so a bigger window shows more of the
 ## world instead of zooming in (1600x900 shows a 960x540 view).
 const VIEW_SCALE := 1600.0 / 960.0
@@ -221,10 +223,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			var mode_name: String = player.cycle_dev_mode()
 			hud.set_dev_mode(player.dev_mode, mode_name)
 			hud.show_message(mode_name, 1.5)
+			if player.dev_mode != 0:
+				player.mark_dev(DEV_MARKS[player.dev_mode])
 		KEY_8, KEY_KP_8:
 			_drop_all_uniques()
+			player.mark_dev("Free uniques")
 		KEY_7, KEY_KP_7:
 			_unlock_all_portals()
+			player.mark_dev("Unlocked portals")
 
 
 ## Like RotMG's escape to Nexus: straight back to the current realm's hub at full HP and MP,

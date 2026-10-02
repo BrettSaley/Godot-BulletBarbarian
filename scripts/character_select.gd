@@ -122,6 +122,10 @@ func _card(slot: int, save: Dictionary) -> Control:
 	var info := _label("%s  -  %s" % [progress, Realms.info(save.realm).name], 18, Color(1, 1, 1, 0.8))
 	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(info)
+	if not hero.get("dev_marks", []).is_empty():
+		var dev := _label("Dev tools used", 14, Color(1, 0.45, 0.4))
+		dev.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		column.add_child(dev)
 
 	var weapon = hero.equipment.get("weapon")
 	if weapon != null:

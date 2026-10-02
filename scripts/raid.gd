@@ -49,6 +49,8 @@ const OLM_WALL := 130.0
 ## The Wardens stand on a raised dais along the top of their room.
 const WARDEN_DAIS := 130.0
 const WARDEN_PEDESTAL_X := 330.0
+## Where Jerak stands, beside the reward chest.
+const JERAK_OFFSET := Vector2(140, 10)
 ## How far each corridor's walkable strip extends into the rooms it joins.
 const DOORWAY_OVERLAP := 30.0
 const RAIDS := {
@@ -316,6 +318,10 @@ func _clear(room: Dictionary) -> void:
 	var final_room: bool = room == rooms[-2]
 	if final_room:
 		_roll_chest()
+		# Jerak waits by the chest to congratulate you.
+		var jerak := Jerak.new()
+		jerak.position = chest_position() + JERAK_OFFSET
+		add_child(jerak)
 	announce.emit("%s defeated!" % ROOM_NAMES[room.kind] if not final_room
 			else "%s is conquered! %s" % [raid_name(), "A purple light shines above the chest!" if chest_had_purple else "Claim your reward."])
 
