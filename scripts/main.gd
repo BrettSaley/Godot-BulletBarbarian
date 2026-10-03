@@ -137,15 +137,15 @@ func _on_slot_chosen(chosen_slot: int) -> void:
 	hud.show_message("Welcome back, %s." % player.character_name, 4.0)
 
 
-## A new Barbarian starts on the design screen; Back returns to the select screen.
+## A new character starts on the design screen; Back returns to the select screen.
 func _design_character() -> void:
 	var creator := CharacterCreator.new()
 	add_child(creator)
 	creator.cancelled.connect(_show_character_select)
-	creator.finished.connect(func(chosen_name: String, look: Dictionary) -> void:
+	creator.finished.connect(func(chosen_name: String, look: Dictionary, chosen_class: String) -> void:
 		get_tree().paused = false
 		choosing = false
-		player.set_look(chosen_name, look)
+		player.set_look(chosen_name, look, chosen_class)
 		_save()
 		hud.show_message("Welcome to Lumbridge, %s. Danger grows the farther you go." % chosen_name, 5.0))
 

@@ -1,5 +1,6 @@
 extends Node2D
-## The Barbarian, the first playable class. Moves with WASD/arrows and throws
+## The player character: a Barbarian, Archer or Mage (they only look different
+## for now; see ClassArt). Moves with WASD/arrows and throws
 ## axes at the mouse while the left button is held. Stats grow with level
 ## (max 20) and from equipped items; death is permanent.
 
@@ -63,6 +64,8 @@ var warcry_timer := 0.0
 var warcry := {}
 ## Chosen on the character design screen.
 var character_name := "Barbarian"
+## "barbarian", "archer" or "mage" (see ClassArt). Only the look differs for now.
+var character_class := "barbarian"
 var look := {}
 var palette := BarbarianArt.HERO
 ## Dev tools this character has ever used. Permanent: saved with the
@@ -85,21 +88,22 @@ func mark_dev(tool_name: String) -> void:
 		changed.emit()
 
 
-func set_look(new_name: String, new_look: Dictionary) -> void:
+func set_look(new_name: String, new_look: Dictionary, new_class := "barbarian") -> void:
 	character_name = new_name
 	look = new_look
-	palette = BarbarianArt.palette_for(look)
+	character_class = new_class
+	palette = ClassArt.palette_for(character_class, look)
 	queue_redraw()
 
 
 func to_save() -> Dictionary:
-	return {"name": character_name, "look": look, "level": level, "xp": xp, "total_xp": total_xp,
+	return {"name": character_name, "class": character_class, "look": look, "level": level, "xp": xp, "total_xp": total_xp,
 			"level_cap": level_cap, "equipment": equipment.duplicate(true), "inventory": inventory.duplicate(true),
 			"dev_marks": dev_marks.duplicate()}
 
 
 func load_save(data: Dictionary) -> void:
-	set_look(data.name, data.look)
+	set_look(data.name, data.look, data.get("class", "barbarian"))
 	level = data.level
 	xp = data.xp
 	total_xp = data.total_xp
@@ -377,7 +381,7 @@ func apply_slow(duration: float) -> void:
 func _draw() -> void:
 	var bob := -absf(sin(walk_time * 14.0)) * 2.5 if moving else sin(Time.get_ticks_msec() / 400.0) * 0.6
 	var waddle := sin(walk_time * 14.0) * 0.08 if moving else 0.0
-	BarbarianArt.draw(self, palette, bob, waddle, facing, ART_SCALE)
+	ClassArt.draw(self, character_class, palette, bob, waddle, facing, ART_SCALE)
 	_draw_overhead_bars()
 
 

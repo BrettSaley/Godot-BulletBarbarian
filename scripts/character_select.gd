@@ -47,7 +47,7 @@ func _build() -> void:
 	column.add_theme_constant_override("separation", 22)
 	center.add_child(column)
 
-	var title := _label("Choose your Barbarian", 40, Color(1, 0.85, 0.45))
+	var title := _label("Choose your Character", 40, Color(1, 0.85, 0.45))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(title)
 
@@ -87,7 +87,7 @@ func _card(slot: int, save: Dictionary) -> Control:
 	style.set_content_margin_all(16)
 	panel.add_theme_stylebox_override("panel", style)
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 10)
+	column.add_theme_constant_override("separation", 6)
 	panel.add_child(column)
 
 	if save.is_empty():
@@ -107,17 +107,21 @@ func _card(slot: int, save: Dictionary) -> Control:
 
 	var hero: Dictionary = save.player
 	var preview := Control.new()
-	preview.custom_minimum_size = Vector2(0, 130)
-	var palette := BarbarianArt.palette_for(hero.look)
+	preview.custom_minimum_size = Vector2(0, 150)
+	var hero_class: String = hero.get("class", "barbarian")
+	var palette := ClassArt.palette_for(hero_class, hero.look)
 	preview.draw.connect(func() -> void:
-		BarbarianArt.draw(preview, palette, sin(time * 3.0 + slot) * 1.2, 0.0, 1.0, 3.2,
-				preview.size / 2.0 + Vector2(0, 8)))
+		ClassArt.draw(preview, hero_class, palette, sin(time * 3.0 + slot) * 1.2, 0.0, 1.0, 3.0,
+				preview.size / 2.0 + Vector2(0, 30)))
 	previews.append(preview)
 	column.add_child(preview)
 
 	var name_label := _label(hero.name, 26, Color(1, 0.9, 0.6))
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(name_label)
+	var class_line := _label(ClassArt.class_name_of(hero_class), 16, Color(0.85, 0.75, 0.55))
+	class_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	column.add_child(class_line)
 	var progress := "Score %d" % (hero.total_xp / 10) if hero.level >= FINAL_LEVEL else "Level %d" % hero.level
 	var info := _label("%s  -  %s" % [progress, Realms.info(save.realm).name], 18, Color(1, 1, 1, 0.8))
 	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
