@@ -76,6 +76,8 @@ static func random_look(cls: String) -> Dictionary:
 ## Draw a class at `origin`, the same way BarbarianArt.draw does.
 static func draw(ci: CanvasItem, cls: String, palette: Dictionary, bob: float, tilt: float, facing: float,
 		size := 1.0, origin := Vector2.ZERO) -> void:
+	if not palette.has("helmet"):
+		palette = palette_for(cls, {})
 	match cls:
 		"archer":
 			_begin(ci, bob, tilt, facing, size, origin)

@@ -18,6 +18,14 @@ const PER_LEVEL := {"hp": 25, "mp": 5, "attack": 1, "defense": 0, "speed": 1, "d
 const PER_LEVEL_LATE := {"hp": 12, "mp": 3, "attack": 0.25, "defense": 0.1, "speed": 0.1, "dexterity": 0.25, "vitality": 0.25}
 const AXE_SPEED := 560.0
 const AXE_SPREAD := 0.15
+## Class specials (see use_ability): damage is this many average volleys of the
+## equipped weapon, raised further by the helm's power.
+const ICE_BARRAGE_DAMAGE := 4.0
+const ICE_BARRAGE_RADIUS := 110.0
+const ICE_BARRAGE_RANGE := 420.0
+const POWER_SHOT_DAMAGE := 7.0
+const POWER_SHOT_SPEED := 1150.0
+const POWER_SHOT_RANGE := 800.0
 const TILE := 48.0
 ## The sprite is drawn this much bigger; the hitbox stays small for dodging.
 const ART_SCALE := 1.3
@@ -147,13 +155,15 @@ func move_speed() -> float:
 	return (4.0 + 5.6 * stat("speed") / 75.0) * TILE * warcry_speed() * DEV_SPEED[dev_mode]
 
 
+## Warcry speeds up throwing by its speed bonus plus the helm's power (it
+## never adds damage).
 func shots_per_second() -> float:
-	return (1.5 + 6.5 * stat("dexterity") / 75.0) * warcry_speed()
+	var frenzy: float = warcry.damage_bonus if warcry_timer > 0.0 else 0.0
+	return (1.5 + 6.5 * stat("dexterity") / 75.0) * (warcry_speed() + frenzy)
 
 
 func damage_multiplier() -> float:
-	var bonus: float = warcry.damage_bonus if warcry_timer > 0.0 else 0.0
-	return (0.5 + stat("attack") / 50.0) * (1.0 + bonus) * DEV_DAMAGE[dev_mode]
+	return (0.5 + stat("attack") / 50.0) * DEV_DAMAGE[dev_mode]
 
 
 ## Normal regen from Vitality, plus a fast out-of-combat regen once you have
@@ -167,22 +177,65 @@ func mp_regen_per_second() -> float:
 	return 4.0 + 0.1 * level
 
 
-## Warcry from the equipped helm: spend MP for a burst of damage and speed.
+## The class special (Space), powered by the equipped helm: its "warcry"
+## stats give the power (damage_bonus), duration and MP cost.
+##   Barbarian - Warcry: faster movement and much faster throwing for a while
+##   Mage      - Ice Barrage: an icy blast at the cursor that hits and freezes
+##               every enemy caught in it
+##   Archer    - Power Shot: one big, fast arrow that hits very hard
 func use_ability() -> void:
 	var helm = equipment.ability
-	if helm == null or not helm.has("warcry"):
+	if helm == null or not helm.has("warcry") or is_safe():
 		return
 	var cry: Dictionary = helm.warcry
 	if mp < cry.mp_cost:
 		DamageText.spawn(get_parent(), position + Vector2(0, -34), "Not enough MP", Color(0.5, 0.7, 1), 12)
 		return
 	mp -= cry.mp_cost
-	warcry = cry
-	warcry_timer = cry.duration
 	if cry.has("heal"):
 		hp = minf(hp + cry.heal, max_hp())
-	DamageText.spawn(get_parent(), position + Vector2(0, -40), "WARCRY!", Color(1, 0.5, 0.3), 16)
+	match character_class:
+		"mage":
+			_ice_barrage(cry)
+		"archer":
+			_power_shot(cry)
+		_:
+			warcry = cry
+			warcry_timer = cry.duration
+			DamageText.spawn(get_parent(), position + Vector2(0, -40), "WARCRY!", Color(1, 0.5, 0.3), 16)
 	changed.emit()
+
+
+## One average volley from the equipped weapon, before specials.
+func _volley_damage() -> float:
+	var weapon = equipment.weapon
+	if weapon == null:
+		return 0.0
+	return (weapon.damage_min + weapon.damage_max) / 2.0 * weapon.shots * damage_multiplier()
+
+
+func _ice_barrage(cry: Dictionary) -> void:
+	var aim := get_global_mouse_position() - position
+	var at := position + aim.limit_length(ICE_BARRAGE_RANGE)
+	var damage: float = _volley_damage() * ICE_BARRAGE_DAMAGE * (1.0 + cry.damage_bonus)
+	var freeze: float = 1.0 + cry.duration * 0.25
+	for enemy in get_tree().get_nodes_in_group("enemies"):
+		if enemy.position.distance_to(at) < ICE_BARRAGE_RADIUS + enemy.radius and enemy.can_be_hit_by_player():
+			if not enemy.invulnerable:
+				enemy.freeze(freeze)
+			enemy.take_damage(damage)
+	IceBarrage.spawn(get_parent(), at, ICE_BARRAGE_RADIUS)
+	DamageText.spawn(get_parent(), position + Vector2(0, -40), "ICE BARRAGE!", Color(0.6, 0.9, 1), 16)
+
+
+func _power_shot(cry: Dictionary) -> void:
+	var aim := get_global_mouse_position() - position
+	var dir := aim.normalized() if aim.length() > 1.0 else Vector2.RIGHT * facing
+	facing = 1.0 if dir.x >= 0.0 else -1.0
+	var damage: float = _volley_damage() * POWER_SHOT_DAMAGE * (1.0 + cry.damage_bonus)
+	shots.spawn(position, dir * POWER_SHOT_SPEED, 18.0, Color(1.0, 0.9, 0.5), damage,
+			POWER_SHOT_RANGE / POWER_SHOT_SPEED, "", Projectiles.Style.ARROW)
+	DamageText.spawn(get_parent(), position + Vector2(0, -40), "POWER SHOT!", Color(1, 0.9, 0.5), 16)
 
 
 func xp_to_next() -> int:

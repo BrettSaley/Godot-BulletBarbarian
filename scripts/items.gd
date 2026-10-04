@@ -108,7 +108,7 @@ static func weapon(tier: int) -> Dictionary:
 	return item
 
 
-## Helms hold the barbarian's Warcry ability.
+## Helms power the class special (Warcry, Ice Barrage or Power Shot).
 static func helm(tier: int) -> Dictionary:
 	var helm_name := "%s Full Helm" % TIER_NAMES[tier]
 	if tier >= FIRST_NAMED_TIER:
@@ -316,8 +316,10 @@ static func describe(item: Dictionary) -> String:
 		lines.append("Range: %d" % item.range)
 	if item.has("warcry"):
 		var w: Dictionary = item.warcry
-		lines.append("Warcry (Space, %d MP): +%d%% damage, +%d%% speed for %.1fs" % [
-			w.mp_cost, roundi(w.damage_bonus * 100), roundi(w.speed_bonus * 100), w.duration])
+		lines.append("Special (Space, %d MP): power +%d%%, %.1fs" % [w.mp_cost, roundi(w.damage_bonus * 100), w.duration])
+		lines.append("  Barbarian: Warcry - faster moving and throwing")
+		lines.append("  Mage: Ice Barrage - blast and freeze an area")
+		lines.append("  Archer: Power Shot - one huge, fast arrow")
 		if w.has("heal"):
 			lines.append("  and heals %d HP" % w.heal)
 	for stat in item.get("stats", {}):

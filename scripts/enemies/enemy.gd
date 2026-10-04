@@ -112,6 +112,8 @@ var contact_timer := 0.0
 var flash_timer := 0.0
 var time := 0.0
 var orbit_dir := 1.0
+## Seconds left frozen by an Ice Barrage.
+var frozen_timer := 0.0
 
 
 ## `in_raid` scales against the realm's raid (expecting its near-best gear)
@@ -188,6 +190,13 @@ func _physics_process(delta: float) -> void:
 	time += delta
 	flash_timer -= delta
 	modulate = Color(1, 0.55, 0.55) if flash_timer > 0.0 else Color(1, 1, 1)
+	if frozen_timer > 0.0:
+		# Frozen solid (Ice Barrage): icy blue, can't move or attack.
+		frozen_timer -= delta
+		modulate = Color(0.55, 0.8, 1.35)
+		contact_timer -= delta
+		queue_redraw()
+		return
 	contact_timer -= delta
 	queue_redraw()
 
@@ -230,6 +239,11 @@ func _physics_process(delta: float) -> void:
 	fire_timer -= delta
 	if fire_timer <= 0.0:
 		fire_timer = _fire(attack)
+
+
+## Freeze in place (Ice Barrage). Bosses shake it off in half the time.
+func freeze(duration: float) -> void:
+	frozen_timer = maxf(frozen_timer, duration * (0.5 if is_boss else 1.0))
 
 
 ## Stay out of the hub's safe zone, and inside `bounds` (raid and dungeon rooms).
