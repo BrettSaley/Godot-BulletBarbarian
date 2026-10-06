@@ -120,6 +120,11 @@ func load_save(data: Dictionary) -> void:
 	inventory = data.inventory
 	dev_marks.assign(data.get("dev_marks", []))
 	inventory.resize(INVENTORY_SIZE)
+	# Characters made before weapon types may hold a weapon their class can't
+	# use: put it in the bag and hand them their class's starter weapon.
+	if equipment.weapon != null and not can_use(equipment.weapon):
+		add_to_inventory(equipment.weapon)
+		equipment.weapon = starter_weapon()
 	hp = max_hp()
 	mp = max_mp()
 	changed.emit()
@@ -321,10 +326,25 @@ func take_from_inventory(index: int) -> Dictionary:
 	return item
 
 
+## Bronze-tier gear: a thrownaxe, shortbow or plain staff for the class.
+func starter_weapon() -> Dictionary:
+	return Items.weapon(0, ClassArt.weapon_type(character_class))
+
+
+## Weapons only work for their class (axes Barbarian, bows Archer, staves Mage).
+func can_use(item: Dictionary) -> bool:
+	return item.slot != "weapon" or Items.weapon_type_of(item) == ClassArt.weapon_type(character_class)
+
+
 ## Swap an inventory item with whatever is equipped in its slot.
 func equip_from_inventory(index: int) -> void:
 	var item = inventory[index]
 	if item == null:
+		return
+	if not can_use(item):
+		var needed := ClassArt.class_for_weapon(Items.weapon_type_of(item))
+		DamageText.spawn(get_parent(), position + Vector2(0, -40), "Only %ss can use that" % ClassArt.class_name_of(needed),
+				Color(1, 0.5, 0.45), 13)
 		return
 	inventory[index] = equipment[item.slot]
 	equipment[item.slot] = item

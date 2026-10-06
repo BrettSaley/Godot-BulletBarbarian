@@ -48,6 +48,15 @@ const TIER_COLORS := [
 ]
 const WEAPON_NAMES := ["Dharok's Greataxe", "Guthix Mjolnir", "Saradomin Godsword", "Zamorak Godsword",
 		"Armadyl Godsword", "Bandos Godsword", "Soulreaper Axe", "Ancient Godsword"]
+## Weapon types and the class that uses each (see ClassArt.WEAPON_TYPE).
+const WEAPON_TYPES := ["axe", "bow", "staff"]
+## Bows and staves for every tier, Bronze to Torva.
+const BOW_NAMES := ["Shortbow", "Oak Shortbow", "Willow Shortbow", "Maple Shortbow", "Maple Longbow",
+		"Yew Shortbow", "Yew Longbow", "Magic Shortbow", "Dark Bow", "Karil's Crossbow", "Guthix Bow",
+		"Saradomin Bow", "Zamorak Bow", "Armadyl Crossbow", "Heavy Ballista", "Venator Bow", "Zaryte Crossbow"]
+const STAFF_NAMES := ["Staff", "Magic Staff", "Staff of Air", "Staff of Water", "Staff of Earth",
+		"Staff of Fire", "Battlestaff", "Mystic Staff", "Ancient Staff", "Ahrim's Staff", "Guthix Staff",
+		"Saradomin Staff", "Zamorak Staff", "Staff of Light", "Nightmare Staff", "Warped Sceptre", "Ancient Sceptre"]
 const HELM_NAMES := ["Dharok's Helm", "Guthix Full Helm", "Saradomin Full Helm", "Zamorak Full Helm",
 		"Armadyl Helmet", "Neitiznot Faceguard", "Oathplate Helm", "Torva Full Helm"]
 const ARMOR_NAMES := ["Dharok's Platebody", "Guthix Platebody", "Saradomin Platebody", "Zamorak Platebody",
@@ -79,11 +88,17 @@ const STAT_LABELS := {
 ## Tier bands each realm drops: [monster min, monster max, boss min, boss max, chest].
 const REALM_TIERS := [[1, 8, 9, 10, 10], [7, 12, 13, 14, 14], [12, 14, 15, 16, 16]]
 const PURPLE_CHANCE := 0.5
-## Each raid: three weapons, then one armour, helm and accessory.
+## Each raid: one weapon per class (axe, bow, staff), then one armour, helm
+## and accessory.
+## Unique weapons that aren't axes. (Elder Maul, Ghrazi Rapier and Keris Partisan
+## no longer drop but still load from older saves, as axes.)
+const UNIQUE_WEAPON_TYPES := {"twisted_bow": "bow", "sanguine_longbow": "bow", "masori_longbow": "bow",
+		"craws_bow": "bow", "kodai_wand": "staff", "sanguinesti_staff": "staff", "tumekens_shadow": "staff",
+		"trident_of_the_seas": "staff"}
 const RAID_UNIQUES := {
-	"cox": ["twisted_bow", "elder_maul", "dragon_claws", "ancestral_robe_top", "ancestral_hat", "twisted_buckler"],
-	"tob": ["scythe_of_vitur", "sanguinesti_staff", "ghrazi_rapier", "justiciar_chestguard", "justiciar_faceguard", "avernic_defender"],
-	"toa": ["tumekens_shadow", "osmumtens_fang", "keris_partisan", "masori_body", "masori_mask", "lightbearer"],
+	"cox": ["twisted_bow", "dragon_claws", "kodai_wand", "ancestral_robe_top", "ancestral_hat", "twisted_buckler"],
+	"tob": ["scythe_of_vitur", "sanguine_longbow", "sanguinesti_staff", "justiciar_chestguard", "justiciar_faceguard", "avernic_defender"],
+	"toa": ["osmumtens_fang", "masori_longbow", "tumekens_shadow", "masori_body", "masori_mask", "lightbearer"],
 }
 
 ## RotMG-style bag colours: brown, pink, purple, white for dungeon UTs and
@@ -92,20 +107,42 @@ const BAG_COLORS := {"brown": Color(0.55, 0.38, 0.22), "pink": Color(0.95, 0.5, 
 		"purple": Color(0.6, 0.3, 0.85), "white": Color(1, 1, 1), "gold": Color(1.0, 0.82, 0.3)}
 
 
-static func weapon(tier: int) -> Dictionary:
+## A tiered weapon of one type: axes for Barbarians, bows for Archers, staves
+## for Mages. Every type deals the same damage at a tier; bows reach further
+## with fast arrows, staves fire glowing orbs.
+static func weapon(tier: int, type := "axe") -> Dictionary:
 	var item := {
-		"name": "%s Thrownaxe" % TIER_NAMES[tier], "slot": "weapon", "tier": tier,
+		"name": "%s Thrownaxe" % TIER_NAMES[tier], "slot": "weapon", "tier": tier, "weapon_type": type,
 		"damage_min": WEAPON_DAMAGE[tier][0], "damage_max": WEAPON_DAMAGE[tier][1],
 		"shots": 2 if tier >= TWIN_AXE_TIER else 1,
 		"range": 360.0 + minf(POWER[tier], 10.0) * 18.0,
 	}
 	if tier >= FIRST_NAMED_TIER:
-		var named: String = WEAPON_NAMES[tier - FIRST_NAMED_TIER]
-		item.name = named
 		item.shots = 1
 		item.size = 16.0
-		item.style = Projectiles.Style.BLADE if "Godsword" in named else Projectiles.Style.AXE
+	match type:
+		"bow":
+			item.name = BOW_NAMES[tier]
+			item.style = Projectiles.Style.ARROW
+			item.speed = 820.0
+			item.range *= 1.2
+			item.size = 12.0 if tier < FIRST_NAMED_TIER else 14.0
+		"staff":
+			item.name = STAFF_NAMES[tier]
+			item.style = Projectiles.Style.ORB
+			item.speed = 560.0
+			item.size = 10.0 if tier < FIRST_NAMED_TIER else 14.0
+		_:
+			if tier >= FIRST_NAMED_TIER:
+				var named: String = WEAPON_NAMES[tier - FIRST_NAMED_TIER]
+				item.name = named
+				item.style = Projectiles.Style.BLADE if "Godsword" in named else Projectiles.Style.AXE
 	return item
+
+
+## "axe", "bow" or "staff" (weapons from before types existed are axes).
+static func weapon_type_of(item: Dictionary) -> String:
+	return item.get("weapon_type", "axe")
 
 
 ## Helms power the class special (Warcry, Ice Barrage or Power Shot).
@@ -147,7 +184,7 @@ static func random_item(tier: int) -> Dictionary:
 	tier = clampi(tier, 1, MAX_TIER)
 	match randi() % 4:
 		0:
-			return weapon(tier)
+			return weapon(tier, WEAPON_TYPES.pick_random())
 		1:
 			return helm(tier)
 		2:
@@ -210,6 +247,11 @@ static func unique(id: String) -> Dictionary:
 		"ancestral_robe_top":
 			item = {"name": "Ancestral Robe Top", "slot": "armor", "stats": {"defense": 62, "hp": 380, "attack": 10},
 					"note": "Chambers of Xeric. Robes woven with ancient power."}
+		"kodai_wand":
+			item = {"name": "Kodai Wand", "slot": "weapon", "style": Projectiles.Style.ORB,
+					"damage_min": 1250, "damage_max": 1350, "shots": 1, "range": 600.0, "speed": 600.0,
+					"size": 15.0, "color": Color(0.45, 0.55, 1.0),
+					"note": "Chambers of Xeric. Crackling ancient magic."}
 		"twisted_buckler":
 			item = {"name": "Twisted Buckler", "slot": "ring", "stats": {"dexterity": 22, "defense": 16, "hp": 250},
 					"note": "Chambers of Xeric. A light, deadly off-hand."}
@@ -230,6 +272,11 @@ static func unique(id: String) -> Dictionary:
 			item = {"name": "Justiciar Faceguard", "slot": "ability", "stats": {"mp": 150, "defense": 14},
 					"warcry": {"duration": 9.0, "damage_bonus": 1.1, "speed_bonus": 0.45, "mp_cost": 60, "heal": 300},
 					"note": "Theatre of Blood. A guardian's Warcry."}
+		"sanguine_longbow":
+			item = {"name": "Sanguine Longbow", "slot": "weapon", "style": Projectiles.Style.ARROW,
+					"damage_min": 860, "damage_max": 997, "shots": 1, "range": 660.0, "speed": 860.0, "rate": 1.4,
+					"color": Color(0.85, 0.12, 0.15),
+					"note": "Theatre of Blood. Arrows tipped in Verzik's blood."}
 		"sanguinesti_staff":
 			item = {"name": "Sanguinesti Staff", "slot": "weapon", "style": Projectiles.Style.ORB,
 					"damage_min": 1011, "damage_max": 1155, "shots": 1, "range": 560.0, "speed": 620.0, "rate": 1.2,
@@ -242,6 +289,11 @@ static func unique(id: String) -> Dictionary:
 			item = {"name": "Avernic Defender", "slot": "ring", "stats": {"attack": 22, "defense": 16, "hp": 250},
 					"note": "Theatre of Blood. Hits harder, takes less."}
 		# --- Tombs of Amascut ---
+		"masori_longbow":
+			item = {"name": "Masori Longbow", "slot": "weapon", "style": Projectiles.Style.ARROW,
+					"damage_min": 485, "damage_max": 555, "shots": 2, "spread": 0.05, "range": 640.0, "speed": 840.0,
+					"rate": 1.25, "color": Color(0.95, 0.8, 0.35),
+					"note": "Tombs of Amascut. Twin arrows blessed by the sun."}
 		"tumekens_shadow":
 			item = {"name": "Tumeken's Shadow", "slot": "weapon", "style": Projectiles.Style.ORB,
 					"damage_min": 1098, "damage_max": 1264, "shots": 1, "range": 620.0, "speed": 560.0, "rate": 1.1,
@@ -269,6 +321,8 @@ static func unique(id: String) -> Dictionary:
 		_:
 			return weapon(0)
 	item.tier = GIGA
+	if item.slot == "weapon":
+		item.weapon_type = UNIQUE_WEAPON_TYPES.get(id, "axe")
 	item.icon = id
 	return item
 
@@ -308,6 +362,8 @@ static func describe(item: Dictionary) -> String:
 	if item.has("note"):
 		lines.append(item.note)
 	if item.slot == "weapon":
+		var type := weapon_type_of(item)
+		lines.append("%s - %ss only" % [type.capitalize(), ClassArt.class_name_of(ClassArt.class_for_weapon(type))])
 		lines.append("Damage: %d-%d" % [item.damage_min, item.damage_max])
 		if item.get("rate", 1.0) != 1.0:
 			lines.append("Attack speed: x%.2f" % item.rate)
@@ -338,6 +394,14 @@ static func draw_icon(ci: CanvasItem, item: Dictionary, center: Vector2) -> void
 		return
 	var color := color_of(item)
 	match item.slot:
+		"weapon" when weapon_type_of(item) == "staff":
+			# A staff: a shaft with a glowing orb set in a little crown
+			ci.draw_line(center + Vector2(-8, 12), center + Vector2(5, -7), Color(0.5, 0.32, 0.15), 3.0)
+			ci.draw_line(center + Vector2(3, -5), center + Vector2(10, -12), Color(0.5, 0.32, 0.15), 1.5)
+			ci.draw_line(center + Vector2(7, -9), center + Vector2(2, -13), Color(0.5, 0.32, 0.15), 1.5)
+			ci.draw_circle(center + Vector2(6, -9), 5.5, Color(color, 0.35))
+			ci.draw_circle(center + Vector2(6, -9), 3.5, color)
+			ci.draw_circle(center + Vector2(5, -10), 1.2, Color(1, 1, 1, 0.8))
 		"weapon" when item.get("style") == Projectiles.Style.ARROW:
 			ci.draw_arc(center + Vector2(-4, 0), 13.0, -1.2, 1.2, 12, color, 3.0)
 			ci.draw_line(center + Vector2(0.8, -12), center + Vector2(0.8, 12), Color(0.9, 0.9, 0.9), 1.0)
@@ -453,6 +517,8 @@ static func dungeon_unique(id: String) -> Dictionary:
 		_:
 			return weapon(0)
 	item.tier = UT
+	if item.slot == "weapon":
+		item.weapon_type = UNIQUE_WEAPON_TYPES.get(id, "axe")
 	item.icon = id
 	return item
 

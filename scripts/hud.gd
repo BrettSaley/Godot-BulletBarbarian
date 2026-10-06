@@ -31,6 +31,8 @@ var portal_prompt: PanelContainer
 var portal_prompt_label: Label
 var portal_prompt_buttons: HBoxContainer
 var bag_slots: Array[ItemSlot] = []
+var bank_panel: PanelContainer
+var bank_slots: Array[ItemSlot] = []
 var message_label: Label
 var message_timer := 0.0
 var boss_arrow: Control
@@ -96,6 +98,10 @@ func _refresh_dev_marks() -> void:
 
 
 func refresh() -> void:
+	if ItemSlot.viewer_class != player.character_class:
+		ItemSlot.viewer_class = player.character_class
+		for slot in bag_slots + bank_slots:
+			slot.queue_redraw()
 	_refresh_dev_marks()
 	if player.at_final_level():
 		level_label.text = "%s   Score %d" % [player.character_name, player.score()]
@@ -122,6 +128,13 @@ func refresh() -> void:
 		equip_slots[slot_name].set_item(player.equipment[slot_name])
 	for i in inventory_slots.size():
 		inventory_slots[i].set_item(player.inventory[i])
+
+
+## The bank's items while standing at the bank chest, or null to hide it.
+func show_bank(items) -> void:
+	bank_panel.visible = items != null
+	for i in bank_slots.size():
+		bank_slots[i].set_item(items[i] if items != null else null)
 
 
 func show_bag(bag: LootBag) -> void:
@@ -300,11 +313,25 @@ func _build_item_panel() -> void:
 	column.anchor_bottom = 1.0
 	column.offset_left = -196
 	column.offset_right = -10
-	column.offset_top = -330
+	column.offset_top = -620
 	column.offset_bottom = -10
 	column.alignment = BoxContainer.ALIGNMENT_END
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(column)
+
+	bank_panel = _panel()
+	bank_panel.visible = false
+	var bank_column := VBoxContainer.new()
+	bank_panel.add_child(bank_column)
+	bank_column.add_child(_label("Bank", 13, Color(1, 0.9, 0.6)))
+	bank_column.add_child(_label("Shared by all your characters.\nClick items to move them in or out.", 11, Color(1, 1, 1, 0.6)))
+	var bank_grid := _grid()
+	bank_column.add_child(bank_grid)
+	for i in Bank.SIZE:
+		var slot := _slot("bank", i)
+		bank_grid.add_child(slot)
+		bank_slots.append(slot)
+	column.add_child(bank_panel)
 
 	bag_panel = _panel()
 	bag_panel.visible = false

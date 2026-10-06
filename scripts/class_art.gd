@@ -37,6 +37,19 @@ const CLASSES := {
 			}},
 }
 const WOOD := Color(0.5, 0.32, 0.15)
+## The one weapon type each class can wield.
+const WEAPON_TYPE := {"barbarian": "axe", "archer": "bow", "mage": "staff"}
+
+
+static func weapon_type(cls: String) -> String:
+	return WEAPON_TYPE.get(cls, "axe")
+
+
+static func class_for_weapon(type: String) -> String:
+	for cls in WEAPON_TYPE:
+		if WEAPON_TYPE[cls] == type:
+			return cls
+	return "barbarian"
 
 
 static func class_name_of(cls: String) -> String:

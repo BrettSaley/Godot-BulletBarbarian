@@ -11,6 +11,8 @@ var group: String
 var key  # equipment slot name (String) or index (int)
 var placeholder := ""
 var item = null
+## The current character's class, so weapons it can't use are marked (set by the HUD).
+static var viewer_class := "barbarian"
 
 
 func _init(slot_group: String, slot_key, empty_label := "") -> void:
@@ -42,6 +44,10 @@ func _draw() -> void:
 	draw_rect(rect, border, false, 2.0)
 	if item != null:
 		Items.draw_icon(self, item, size / 2.0)
+		if item.slot == "weapon" and Items.weapon_type_of(item) != ClassArt.weapon_type(viewer_class):
+			# Another class's weapon: dimmed with a red slash.
+			draw_rect(rect, Color(0.1, 0.05, 0.05, 0.5))
+			draw_line(Vector2(6, size.y - 6), Vector2(size.x - 6, 6), Color(0.9, 0.25, 0.2, 0.85), 2.5)
 		# Right-aligned so longer tags like "GIGA" still fit.
 		var tag := Items.tier_label(item)
 		var tag_width := ThemeDB.fallback_font.get_string_size(tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x

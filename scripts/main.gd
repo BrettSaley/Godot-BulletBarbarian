@@ -16,6 +16,9 @@ const DUNGEONS_PER_RAID := 2
 const AUTOSAVE_INTERVAL := 30.0
 ## How each dev mode is recorded on the character that used it.
 const DEV_MARKS := ["", "Strong mode", "God mode"]
+## The bank chest sits just north of the campfire in every hub.
+const BANK_OFFSET := Vector2(0, -130)
+const BANK_REACH := 20.0
 ## Screen pixels per world pixel. Fixed, so a bigger window shows more of the
 ## world instead of zooming in (1600x900 shows a 960x540 view).
 const VIEW_SCALE := 1600.0 / 960.0
@@ -55,6 +58,11 @@ var locked_notice_timer := 0.0
 ## The portal the enter prompt is asking about, and one the player said No to.
 var prompt_portal: Portal
 var declined_portal: Portal
+## The shared bank (see Bank), its chest by the campfire, and whether the
+## player is standing at it.
+var bank_items: Array = []
+var bank_chest: BankChest
+var at_bank := false
 var saving := false
 var choosing := false  # on the select or design screen
 var slot := 0
@@ -95,6 +103,13 @@ func _ready() -> void:
 
 	# Only the real game saves; test scripts that add Main by hand don't touch the saves.
 	saving = get_tree().current_scene == self
+	# The bank is shared by every character (test scripts get an empty one).
+	bank_items = Bank.read() if saving else []
+	bank_items.resize(Bank.SIZE)
+	bank_chest = BankChest.new()
+	bank_chest.position = World.CENTER + BANK_OFFSET
+	add_child(bank_chest)
+	move_child(bank_chest, world.get_index() + 1)
 	# Nothing may save until a character is picked, or the blank starting
 	# Barbarian would overwrite slot 1.
 	choosing = saving
@@ -146,6 +161,8 @@ func _design_character() -> void:
 		get_tree().paused = false
 		choosing = false
 		player.set_look(chosen_name, look, chosen_class)
+		player.equipment.weapon = player.starter_weapon()
+		player.changed.emit()
 		_save()
 		hud.show_message("Welcome to Lumbridge, %s. Danger grows the farther you go." % chosen_name, 5.0))
 
@@ -194,6 +211,7 @@ func _process(delta: float) -> void:
 		autosave_timer = AUTOSAVE_INTERVAL
 		_save()
 	_update_portal_prompt()
+	_update_bank()
 
 	if instance is Dungeon:
 		hud.area_name = instance.raid_name()
@@ -570,8 +588,17 @@ func _on_slot_clicked(slot: ItemSlot, button: int) -> void:
 		"inventory":
 			if right:
 				_drop(player.take_from_inventory(slot.key))
+			elif at_bank:
+				_deposit(slot.key)
 			else:
 				player.equip_from_inventory(slot.key)
+		"bank":
+			if player.first_free_slot() == -1:
+				hud.show_message("Inventory full", 1.2)
+				return
+			player.add_to_inventory(bank_items[slot.key])
+			bank_items[slot.key] = null
+			_bank_changed()
 		"equip":
 			if right:
 				var item: Dictionary = player.equipment[slot.key]
@@ -589,6 +616,35 @@ func _on_slot_clicked(slot: ItemSlot, button: int) -> void:
 				return
 			player.add_to_inventory(current_bag.take(slot.key))
 	shown_bag_size = -2  # force the bag panel to refresh
+
+
+## Move an inventory item into the first free bank slot.
+func _deposit(index: int) -> void:
+	var free := Bank.first_free(bank_items)
+	if free == -1:
+		hud.show_message("Bank full", 1.2)
+		return
+	bank_items[free] = player.take_from_inventory(index)
+	_bank_changed()
+
+
+## Save the bank and the character together, so an item is never in both
+## (or neither) if the game closes right after moving it.
+func _bank_changed() -> void:
+	hud.show_bank(bank_items)
+	if saving:
+		Bank.write(bank_items)
+	_save()
+
+
+## Standing by the bank chest in a hub opens the bank panel.
+func _update_bank() -> void:
+	var near: bool = instance == null and player.is_alive() and not choosing \
+			and player.position.distance_to(bank_chest.position) < BankChest.RADIUS + BANK_REACH
+	if near != at_bank:
+		at_bank = near
+		bank_chest.open = near
+		hud.show_bank(bank_items if near else null)
 
 
 ## Put an item on the ground: into the bag underfoot if it has room, else a new bag.

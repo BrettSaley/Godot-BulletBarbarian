@@ -17,6 +17,7 @@ static func has_icon(id: String) -> bool:
 		"dragon_chainbody", "sarachnis_chitin_helm", "trident_of_the_seas", "fire_cape",
 		"crystal_helm", "dragon_hunter_lance", "primordial_boots", "inquisitors_hauberk",
 		"dragonfire_shield", "craws_bow", "abyssal_crown", "malediction_ward",
+		"kodai_wand", "sanguine_longbow", "masori_longbow",
 	]
 
 
@@ -173,6 +174,37 @@ static func draw(ci: CanvasItem, id: String, c: Vector2) -> void:
 			ci.draw_circle(c + Vector2(-3, 0), 1.6, Color(1, 0.5, 0.1))
 			ci.draw_circle(c + Vector2(3, 0), 1.6, Color(1, 0.5, 0.1))
 			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-3, 4), c + Vector2(3, 4), c + Vector2(0, 10)]), Color(0.3, 0.3, 0.32))
+		"kodai_wand":
+			# Short dark wand with a blue crystal head wrapped in gold
+			ci.draw_line(c + Vector2(-9, 12), c + Vector2(4, -4), Color(0.2, 0.18, 0.28), 3.0)
+			ci.draw_line(c + Vector2(-6, 8), c + Vector2(-3, 5), GOLD, 3.0)
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(2, -2), c + Vector2(4, -12), c + Vector2(10, -13),
+					c + Vector2(11, -7), c + Vector2(6, -1)]), Color(0.35, 0.5, 1.0))
+			ci.draw_line(c + Vector2(4, -12), c + Vector2(10, -6), Color(0.75, 0.85, 1.0), 1.5)
+			ci.draw_arc(c + Vector2(6, -7), 6.5, 0.0, TAU, 16, Color(GOLD, 0.8), 1.2)
+		"sanguine_longbow":
+			# Tall blood-red longbow with dark limbs tips and a pale string
+			var red_limb := PackedVector2Array()
+			for i in 13:
+				var t := -1.0 + i / 6.0
+				red_limb.append(c + Vector2(-5 + 6 * t * t, t * 14))
+			ci.draw_polyline(red_limb, Color(0.75, 0.1, 0.12), 3.5)
+			ci.draw_line(red_limb[0], red_limb[12], Color(0.95, 0.85, 0.85), 1.0)
+			ci.draw_circle(red_limb[0], 2.0, Color(0.3, 0.05, 0.05))
+			ci.draw_circle(red_limb[12], 2.0, Color(0.3, 0.05, 0.05))
+			ci.draw_circle(c + Vector2(-5, 0), 2.5, Color(0.95, 0.25, 0.25))
+		"masori_longbow":
+			# Gold-and-turquoise sun bow, with a sun disc at the grip
+			var sun_limb := PackedVector2Array()
+			for i in 13:
+				var t := -1.0 + i / 6.0
+				sun_limb.append(c + Vector2(-5 + 6 * t * t, t * 14))
+			ci.draw_polyline(sun_limb, GOLD, 3.5)
+			ci.draw_line(sun_limb[0], sun_limb[12], Color(0.95, 0.95, 0.85), 1.0)
+			for k in [2, 10]:
+				ci.draw_circle(sun_limb[k], 1.8, Color(0.3, 0.75, 0.75))
+			ci.draw_circle(c + Vector2(-5, 0), 4.0, Color(1.0, 0.85, 0.35))
+			ci.draw_circle(c + Vector2(-5, 0), 2.2, Color(0.95, 0.55, 0.2))
 		"craws_bow":
 			var limb := PackedVector2Array()
 			for i in 11:
