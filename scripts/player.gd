@@ -125,6 +125,9 @@ func load_save(data: Dictionary) -> void:
 	if equipment.weapon != null and not can_use(equipment.weapon):
 		add_to_inventory(equipment.weapon)
 		equipment.weapon = starter_weapon()
+	if equipment.ability != null and not can_use(equipment.ability):
+		add_to_inventory(equipment.ability)
+		equipment.ability = starter_ability()
 	hp = max_hp()
 	mp = max_mp()
 	changed.emit()
@@ -326,14 +329,20 @@ func take_from_inventory(index: int) -> Dictionary:
 	return item
 
 
-## Bronze-tier gear: a thrownaxe, shortbow or plain staff for the class.
+## Bronze-tier class gear: a thrownaxe, shortbow or plain staff, and a full
+## helm, bronze arrows or air runes.
 func starter_weapon() -> Dictionary:
 	return Items.weapon(0, ClassArt.weapon_type(character_class))
 
 
-## Weapons only work for their class (axes Barbarian, bows Archer, staves Mage).
+func starter_ability() -> Dictionary:
+	return Items.ability(0, ClassArt.ability_type(character_class))
+
+
+## Weapons and ability items only work for their class (axes and helms for
+## Barbarians, bows and ammo for Archers, staves and runes for Mages).
 func can_use(item: Dictionary) -> bool:
-	return item.slot != "weapon" or Items.weapon_type_of(item) == ClassArt.weapon_type(character_class)
+	return Items.usable_by(item, character_class)
 
 
 ## Swap an inventory item with whatever is equipped in its slot.
@@ -342,7 +351,7 @@ func equip_from_inventory(index: int) -> void:
 	if item == null:
 		return
 	if not can_use(item):
-		var needed := ClassArt.class_for_weapon(Items.weapon_type_of(item))
+		var needed := Items.class_of(item)
 		DamageText.spawn(get_parent(), position + Vector2(0, -40), "Only %ss can use that" % ClassArt.class_name_of(needed),
 				Color(1, 0.5, 0.45), 13)
 		return

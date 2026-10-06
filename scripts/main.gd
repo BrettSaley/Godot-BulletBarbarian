@@ -162,6 +162,7 @@ func _design_character() -> void:
 		choosing = false
 		player.set_look(chosen_name, look, chosen_class)
 		player.equipment.weapon = player.starter_weapon()
+		player.equipment.ability = player.starter_ability()
 		player.changed.emit()
 		_save()
 		hud.show_message("Welcome to Lumbridge, %s. Danger grows the farther you go." % chosen_name, 5.0))

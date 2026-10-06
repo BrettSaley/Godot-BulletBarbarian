@@ -44,8 +44,8 @@ func _draw() -> void:
 	draw_rect(rect, border, false, 2.0)
 	if item != null:
 		Items.draw_icon(self, item, size / 2.0)
-		if item.slot == "weapon" and Items.weapon_type_of(item) != ClassArt.weapon_type(viewer_class):
-			# Another class's weapon: dimmed with a red slash.
+		if not Items.usable_by(item, viewer_class):
+			# Another class's weapon or ability item: dimmed with a red slash.
 			draw_rect(rect, Color(0.1, 0.05, 0.05, 0.5))
 			draw_line(Vector2(6, size.y - 6), Vector2(size.x - 6, 6), Color(0.9, 0.25, 0.2, 0.85), 2.5)
 		# Right-aligned so longer tags like "GIGA" still fit.

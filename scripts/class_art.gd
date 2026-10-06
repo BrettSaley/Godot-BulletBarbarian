@@ -45,6 +45,22 @@ static func weapon_type(cls: String) -> String:
 	return WEAPON_TYPE.get(cls, "axe")
 
 
+## The one ability item type each class can use (it powers that class's special).
+const ABILITY_TYPE := {"barbarian": "helm", "archer": "ammo", "mage": "runes"}
+const SPECIAL_NAMES := {"barbarian": "Warcry", "archer": "Power Shot", "mage": "Ice Barrage"}
+
+
+static func ability_type(cls: String) -> String:
+	return ABILITY_TYPE.get(cls, "helm")
+
+
+static func class_for_ability(type: String) -> String:
+	for cls in ABILITY_TYPE:
+		if ABILITY_TYPE[cls] == type:
+			return cls
+	return "barbarian"
+
+
 static func class_for_weapon(type: String) -> String:
 	for cls in WEAPON_TYPE:
 		if WEAPON_TYPE[cls] == type:

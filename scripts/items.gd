@@ -48,6 +48,28 @@ const TIER_COLORS := [
 ]
 const WEAPON_NAMES := ["Dharok's Greataxe", "Guthix Mjolnir", "Saradomin Godsword", "Zamorak Godsword",
 		"Armadyl Godsword", "Bandos Godsword", "Soulreaper Axe", "Ancient Godsword"]
+## Ability item types and the class that uses each (see ClassArt.ABILITY_TYPE):
+## helms for Barbarians, ammo for Archers, runes for Mages.
+const ABILITY_TYPES := ["helm", "ammo", "runes"]
+## What each class's special does, for tooltips.
+const SPECIAL_HINTS := {"barbarian": "Faster moving and much faster throwing",
+		"archer": "One huge, fast arrow that hits very hard", "mage": "Blast and freeze every enemy in an area"}
+## Archer ammo, Bronze to Torva: OSRS arrows, then bolts and quivers.
+const AMMO_NAMES := ["Bronze Arrows", "Iron Arrows", "Steel Arrows", "Broad Arrows", "Ice Arrows",
+		"Mithril Arrows", "Adamant Arrows", "Rune Arrows", "Dragon Arrows", "Bolt Rack", "Amethyst Arrows",
+		"Ava's Attractor", "Ava's Accumulator", "Ruby Dragon Bolts (e)", "Ava's Assembler", "Dizana's Quiver",
+		"Blessed Dizana's Quiver"]
+## Mage runes, Bronze to Torva, in the order OSRS unlocks them.
+const RUNE_NAMES := ["Air Runes", "Mind Runes", "Water Runes", "Earth Runes", "Fire Runes", "Body Runes",
+		"Cosmic Runes", "Chaos Runes", "Nature Runes", "Law Runes", "Astral Runes", "Death Runes", "Blood Runes",
+		"Soul Runes", "Wrath Runes", "Rune Pouch", "Divine Rune Pouch"]
+const RUNE_COLORS := [
+	Color(0.92, 0.92, 0.95), Color(0.95, 0.6, 0.2), Color(0.3, 0.5, 0.95), Color(0.55, 0.38, 0.2),
+	Color(0.95, 0.3, 0.15), Color(0.4, 0.45, 0.75), Color(0.95, 0.9, 0.35), Color(0.95, 0.45, 0.15),
+	Color(0.35, 0.8, 0.3), Color(0.25, 0.4, 0.9), Color(0.8, 0.85, 1.0), Color(0.9, 0.9, 0.85),
+	Color(0.85, 0.12, 0.15), Color(0.6, 0.3, 0.75), Color(0.95, 0.35, 0.25), Color(0.6, 0.45, 0.25),
+	Color(0.7, 0.45, 0.95),
+]
 ## Weapon types and the class that uses each (see ClassArt.WEAPON_TYPE).
 const WEAPON_TYPES := ["axe", "bow", "staff"]
 ## Bows and staves for every tier, Bronze to Torva.
@@ -95,6 +117,10 @@ const PURPLE_CHANCE := 0.5
 const UNIQUE_WEAPON_TYPES := {"twisted_bow": "bow", "sanguine_longbow": "bow", "masori_longbow": "bow",
 		"craws_bow": "bow", "kodai_wand": "staff", "sanguinesti_staff": "staff", "tumekens_shadow": "staff",
 		"trident_of_the_seas": "staff"}
+## Unique ability items by combat style: magic ones are Mage runes-slot items,
+## ranged ones Archer ammo-slot items, the rest Barbarian helms.
+const UNIQUE_ABILITY_TYPES := {"ancestral_hat": "runes", "abyssal_crown": "runes", "masori_mask": "ammo",
+		"crystal_helm": "ammo"}
 const RAID_UNIQUES := {
 	"cox": ["twisted_bow", "dragon_claws", "kodai_wand", "ancestral_robe_top", "ancestral_hat", "twisted_buckler"],
 	"tob": ["scythe_of_vitur", "sanguine_longbow", "sanguinesti_staff", "justiciar_chestguard", "justiciar_faceguard", "avernic_defender"],
@@ -152,10 +178,48 @@ static func helm(tier: int) -> Dictionary:
 		helm_name = HELM_NAMES[tier - FIRST_NAMED_TIER]
 	var p: float = POWER[tier]
 	return {
-		"name": helm_name, "slot": "ability", "tier": tier,
+		"name": helm_name, "slot": "ability", "tier": tier, "ability_type": "helm",
 		"stats": {"defense": int(p / 2.0)},
 		"warcry": {"duration": 3.0 + 0.3 * p, "damage_bonus": 0.2 + 0.035 * p, "speed_bonus": 0.2, "mp_cost": 40 + roundi(3 * p)},
 	}
+
+
+## A tiered ability item of one type, each class's own: helms (Barbarian
+## Warcry), ammo (Archer Power Shot) and runes (Mage Ice Barrage). All types
+## power their special equally at a tier; only the small stat differs.
+static func ability(tier: int, type := "helm") -> Dictionary:
+	var item := helm(tier)
+	var p: float = POWER[tier]
+	item.ability_type = type
+	match type:
+		"ammo":
+			item.name = AMMO_NAMES[tier]
+			item.stats = {"dexterity": int(p / 2.0)}
+		"runes":
+			item.name = RUNE_NAMES[tier]
+			item.stats = {"mp": roundi(p * 6.0)}
+			item.glyph = RUNE_COLORS[tier]
+	return item
+
+
+## "helm", "ammo" or "runes" (ability items from before types existed are helms).
+static func ability_type_of(item: Dictionary) -> String:
+	return item.get("ability_type", "helm")
+
+
+## The one class that can use an item, or "" if every class can.
+static func class_of(item: Dictionary) -> String:
+	match item.slot:
+		"weapon":
+			return ClassArt.class_for_weapon(weapon_type_of(item))
+		"ability":
+			return ClassArt.class_for_ability(ability_type_of(item))
+	return ""
+
+
+static func usable_by(item: Dictionary, cls: String) -> bool:
+	var needed := class_of(item)
+	return needed == "" or needed == cls
 
 
 static func armor(tier: int) -> Dictionary:
@@ -186,7 +250,7 @@ static func random_item(tier: int) -> Dictionary:
 		0:
 			return weapon(tier, WEAPON_TYPES.pick_random())
 		1:
-			return helm(tier)
+			return ability(tier, ABILITY_TYPES.pick_random())
 		2:
 			return armor(tier)
 	return ring(tier)
@@ -323,6 +387,8 @@ static func unique(id: String) -> Dictionary:
 	item.tier = GIGA
 	if item.slot == "weapon":
 		item.weapon_type = UNIQUE_WEAPON_TYPES.get(id, "axe")
+	if item.slot == "ability":
+		item.ability_type = UNIQUE_ABILITY_TYPES.get(id, "helm")
 	item.icon = id
 	return item
 
@@ -361,9 +427,11 @@ static func describe(item: Dictionary) -> String:
 	var lines: Array[String] = ["%s  (%s)" % [item.name, tier_text]]
 	if item.has("note"):
 		lines.append(item.note)
+	var needed := class_of(item)
+	if needed != "":
+		var kind: String = weapon_type_of(item) if item.slot == "weapon" else ability_type_of(item)
+		lines.append("%s - %ss only" % [kind.capitalize(), ClassArt.class_name_of(needed)])
 	if item.slot == "weapon":
-		var type := weapon_type_of(item)
-		lines.append("%s - %ss only" % [type.capitalize(), ClassArt.class_name_of(ClassArt.class_for_weapon(type))])
 		lines.append("Damage: %d-%d" % [item.damage_min, item.damage_max])
 		if item.get("rate", 1.0) != 1.0:
 			lines.append("Attack speed: x%.2f" % item.rate)
@@ -372,10 +440,9 @@ static func describe(item: Dictionary) -> String:
 		lines.append("Range: %d" % item.range)
 	if item.has("warcry"):
 		var w: Dictionary = item.warcry
-		lines.append("Special (Space, %d MP): power +%d%%, %.1fs" % [w.mp_cost, roundi(w.damage_bonus * 100), w.duration])
-		lines.append("  Barbarian: Warcry - faster moving and throwing")
-		lines.append("  Mage: Ice Barrage - blast and freeze an area")
-		lines.append("  Archer: Power Shot - one huge, fast arrow")
+		lines.append("%s (Space, %d MP): power +%d%%, %.1fs" % [ClassArt.SPECIAL_NAMES[needed], w.mp_cost,
+				roundi(w.damage_bonus * 100), w.duration])
+		lines.append("  " + SPECIAL_HINTS[needed])
 		if w.has("heal"):
 			lines.append("  and heals %d HP" % w.heal)
 	for stat in item.get("stats", {}):
@@ -421,6 +488,26 @@ static func draw_icon(ci: CanvasItem, item: Dictionary, center: Vector2) -> void
 			ci.draw_line(center + Vector2(-9, 11), center + Vector2(5, -7), Color(0.5, 0.32, 0.15), 3.0)
 			ci.draw_colored_polygon(PackedVector2Array([
 				center + Vector2(1, -12), center + Vector2(12, -9), center + Vector2(10, 3), center + Vector2(4, -3)]), color)
+		"ability" when ability_type_of(item) == "ammo":
+			# A leather quiver of arrows with tier-coloured heads
+			for k in 3:
+				var base := center + Vector2(-5 + k * 4, -2)
+				ci.draw_line(base, base + Vector2(2, -9), Color(0.75, 0.6, 0.4), 1.5)
+				ci.draw_colored_polygon(PackedVector2Array([base + Vector2(0.5, -9), base + Vector2(2, -13),
+						base + Vector2(3.5, -9)]), color)
+			ci.draw_colored_polygon(PackedVector2Array([center + Vector2(-8, -3), center + Vector2(8, -5),
+					center + Vector2(9, 11), center + Vector2(-6, 13)]), Color(0.45, 0.28, 0.14))
+			ci.draw_line(center + Vector2(-7, 1), center + Vector2(8, -1), color.darkened(0.2), 2.0)
+		"ability" when ability_type_of(item) == "runes":
+			# A pale rune stone carved with a glowing glyph
+			var stone := PackedVector2Array([center + Vector2(-9, -6), center + Vector2(-4, -11), center + Vector2(6, -10),
+					center + Vector2(10, -2), center + Vector2(7, 9), center + Vector2(-5, 10), center + Vector2(-10, 3)])
+			ci.draw_colored_polygon(stone, Color(0.78, 0.76, 0.72))
+			var glyph: Color = item.get("glyph", color)
+			ci.draw_circle(center, 5.5, Color(glyph, 0.35))
+			ci.draw_line(center + Vector2(-3, 3), center + Vector2(0, -4), glyph, 2.0)
+			ci.draw_line(center + Vector2(0, -4), center + Vector2(3, 3), glyph, 2.0)
+			ci.draw_line(center + Vector2(-2, 1), center + Vector2(2, 1), glyph, 1.5)
 		"ability":
 			var dome := PackedVector2Array()
 			for i in 11:
@@ -519,6 +606,8 @@ static func dungeon_unique(id: String) -> Dictionary:
 	item.tier = UT
 	if item.slot == "weapon":
 		item.weapon_type = UNIQUE_WEAPON_TYPES.get(id, "axe")
+	if item.slot == "ability":
+		item.ability_type = UNIQUE_ABILITY_TYPES.get(id, "helm")
 	item.icon = id
 	return item
 
