@@ -1,9 +1,11 @@
 extends Enemy
 ## Chaos Elemental (OSRS, the Wilderness). A swirling mass of chaos that
-## fires rainbow barrages, flings you to a random nearby spot ("madness"),
+## fires rainbow barrages, spirals of chaos ("madness"),
 ## and scatters exploding discord around you.
 
 const COLORS := [Color(1, 0.3, 0.3), Color(0.3, 1, 0.4), Color(0.35, 0.5, 1), Color(1, 0.9, 0.3), Color(0.9, 0.4, 1)]
+
+var spiral := 0.0
 
 
 func _init() -> void:
@@ -32,9 +34,12 @@ func _fire(attack_name: String) -> float:
 				shoot(position, Vector2.from_angle(offset + TAU * i / 15.0) * 135.0, 7.0, COLORS[i % COLORS.size()])
 			return 0.7
 		"madness":
-			player.knock_back(Vector2.from_angle(randf() * TAU) * randf_range(150, 250))
-			DamageText.spawn(get_parent(), player.position + Vector2(0, -40), "MADNESS!", COLORS[4], 16)
-			return 2.5
+			# A spiralling rainbow barrage. (It used to fling the player, but
+			# overworld bosses never move the player into other monsters' shots.)
+			spiral += 0.5
+			for i in 3:
+				shoot(position, Vector2.from_angle(spiral + TAU * i / 3.0) * 150.0, 7.0, COLORS[(i + int(spiral)) % COLORS.size()])
+			return 0.12
 		"discord":
 			for i in 5:
 				hazards().blast(player.position + Vector2.from_angle(randf() * TAU) * randf_range(0, 130), 45.0, 1.1,

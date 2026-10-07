@@ -1,20 +1,29 @@
 extends Enemy
 ## Sotetseg (Theatre of Blood). A hulking red beast at the top of its room.
 ## Fires red and blue orbs and hurls a slow death ball that hits very hard.
-## At 66% and 33% health it drags you into the maze: the floor fills with red
-## tiles that explode after a few seconds - only a single winding path of
-## plain floor is safe, so trace it before the red tiles go off.
+## At 66% and 33% health it drags you into the maze: the floor becomes a grid
+## of small red tiles that burn while you stand on them, with one winding path
+## of plain floor snaking up to a green exit tile. The maze is timed - get to
+## the exit before the countdown ends, or its collapse hits you hard wherever
+## you're standing, safe tile or not.
 
 const RED := Color(0.9, 0.15, 0.15)
 const BLUE := Color(0.3, 0.5, 1.0)
+const EXIT := Color(0.35, 0.95, 0.45)
 const MAZE_AT := [0.66, 0.33]
-const CELL := 90.0
-const MAZE_DELAY := 3.2
+const CELL := 60.0
+const MAZE_TIME := 9.0
+## The path sidesteps at least this many tiles between rows, so it winds.
+const MIN_SWING := 3
+## Running out of time costs this share of the player's max health.
+const FAIL_DAMAGE := 0.6
 
 ## Set by the raid.
 var room: Rect2
 var mazes_left := MAZE_AT.duplicate()
 var red_next := true
+var maze_time := 0.0
+var exit_rect := Rect2()
 
 
 func _init() -> void:
@@ -31,17 +40,33 @@ func _init() -> void:
 	projectile_style = Projectiles.Style.ORB
 
 
+func in_maze() -> bool:
+	return maze_time > 0.0
+
+
 func _attacks() -> Array:
 	return ["orbs", "orbs", "death_ball"]
 
 
-func _move(_delta: float) -> void:
+func _move(delta: float) -> void:
+	if in_maze():
+		maze_time -= delta
+		rest_timer = 1.0  # no attacks while the maze is up
+		if exit_rect.has_point(player.position):
+			_end_maze()
+			DamageText.spawn(get_parent(), player.position + Vector2(0, -40), "Made it!", EXIT, 18)
+		elif maze_time <= 0.0:
+			_end_maze()
+			player.take_damage(player.max_hp() * FAIL_DAMAGE, "Sotetseg's maze", true)
+			DamageText.spawn(get_parent(), player.position + Vector2(0, -40), "The maze collapses!", RED.lightened(0.3), 18)
+		return
 	if not mazes_left.is_empty() and hp / max_hp < mazes_left[0]:
 		mazes_left.pop_front()
 		_start_maze()
 
 
-## Every floor cell explodes except a random path from the bottom row to the top.
+## A snaking path from the bottom row to an exit on the top row: across each
+## row it swings well to one side, then climbs a row. Every other tile burns.
 func _start_maze() -> void:
 	var cols := int(room.size.x / CELL)
 	var rows := int((room.size.y - 110.0) / CELL)
@@ -51,20 +76,32 @@ func _start_maze() -> void:
 	var start_col := col
 	for row in range(rows - 1, -1, -1):
 		safe[Vector2i(col, row)] = true
-		var next_col := clampi(col + randi_range(-2, 2), 0, cols - 1)
+		var next_col := col
+		for attempt in 12:
+			next_col = randi() % cols
+			if absi(next_col - col) >= MIN_SWING:
+				break
 		while col != next_col:
 			col += signi(next_col - col)
 			safe[Vector2i(col, row)] = true
+	exit_rect = Rect2(origin + Vector2(col, 0) * CELL, Vector2(CELL, CELL))
 	for c in cols:
 		for r in rows:
 			if not safe.has(Vector2i(c, r)):
-				hazards().rect_blast(Rect2(origin + Vector2(c, r) * CELL, Vector2(CELL, CELL)), MAZE_DELAY,
-						bullet_damage * 3.5, "Sotetseg's maze", RED)
+				hazards().rect_pool(Rect2(origin + Vector2(c, r) * CELL, Vector2(CELL, CELL)).grow(-2), MAZE_TIME,
+						bullet_damage * 6.0, "Sotetseg's maze", RED)
 	player.position = origin + Vector2(start_col + 0.5, rows - 0.5) * CELL
 	shots.clear_all()
+	attack = ""
 	attack_timer = 0.0
-	rest_timer = MAZE_DELAY + 0.5
-	DamageText.spawn(get_parent(), position + Vector2(0, 70), "THE MAZE! Follow the plain floor.", RED.lightened(0.4), 18)
+	maze_time = MAZE_TIME
+	DamageText.spawn(get_parent(), position + Vector2(0, 70), "THE MAZE! Reach the green exit in time.", RED.lightened(0.4), 18)
+
+
+func _end_maze() -> void:
+	maze_time = 0.0
+	hazards().clear_all()
+	rest_timer = 1.5
 
 
 func _fire(attack_name: String) -> float:
@@ -80,6 +117,16 @@ func _fire(attack_name: String) -> float:
 
 
 func _draw() -> void:
+	if in_maze():
+		# The green exit tile and the countdown, in world space.
+		var exit := Rect2((exit_rect.position - position) / size_scale, exit_rect.size / size_scale)
+		draw_rect(exit, Color(EXIT, 0.35 + 0.2 * sin(time * 8.0)))
+		draw_rect(exit, EXIT, false, 2.0)
+		draw_string(ThemeDB.fallback_font, exit.position + Vector2(0, -6), "EXIT", HORIZONTAL_ALIGNMENT_CENTER,
+				exit.size.x, 12, EXIT)
+		var urgent := maze_time < 3.0
+		draw_string(ThemeDB.fallback_font, Vector2(-80, 74), "%.1f" % maze_time, HORIZONTAL_ALIGNMENT_CENTER, 160,
+				30, RED.lightened(0.5) if urgent else Color(1, 1, 1))
 	var body := Color(0.45, 0.06, 0.08)
 	draw_set_transform(Vector2(0, 36), 0.0, Vector2(1.4, 0.3))
 	draw_circle(Vector2.ZERO, 32.0, Color(0, 0, 0, 0.3))

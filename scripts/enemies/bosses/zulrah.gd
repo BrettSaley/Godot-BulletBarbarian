@@ -97,15 +97,22 @@ func _fire(attack_name: String) -> float:
 	return 1.0
 
 
-func _draw() -> void:
-	# The swamp stays put while Zulrah moves between spots around it.
-	var swamp := (home - position) / size_scale
-	draw_circle(swamp, SWAMP_RADIUS / size_scale, Color(0.12, 0.28, 0.2, 0.85))
-	draw_circle(swamp, SWAMP_RADIUS * 0.8 / size_scale, Color(0.16, 0.34, 0.24, 0.8))
+func _ready() -> void:
+	# The swamp stays put while Zulrah moves around it (and doesn't flash
+	# when she's hit).
+	add_ground_decor(_draw_swamp)
+
+
+func _draw_swamp(ci: Node2D) -> void:
+	ci.draw_circle(home, SWAMP_RADIUS, Color(0.12, 0.28, 0.2, 0.85))
+	ci.draw_circle(home, SWAMP_RADIUS * 0.8, Color(0.16, 0.34, 0.24, 0.8))
 	for k in 5:
 		var ripple := fmod(time * 0.5 + k * 0.2, 1.0)
-		draw_arc(swamp + Vector2.from_angle(k * 1.3) * 90.0, 10.0 + ripple * 30.0, 0.0, TAU, 20, Color(0.5, 0.8, 0.6, 0.4 * (1.0 - ripple)), 1.5)
+		ci.draw_arc(home + Vector2.from_angle(k * 1.3) * 90.0 * size_scale, (10.0 + ripple * 30.0) * size_scale, 0.0, TAU, 20,
+				Color(0.5, 0.8, 0.6, 0.4 * (1.0 - ripple)), 1.5)
 
+
+func _draw() -> void:
 	if untargetable:
 		# Bubbles where it will rise.
 		for k in 4:

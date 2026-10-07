@@ -6,8 +6,9 @@ extends Enemy
 ##     the dais, immune, casting specials: exploding floor tiles, lightning
 ##     lanes and skull rain.
 ##   3 When the first falls, the survivor takes the throne at the top centre
-##     (like the Great Olm) and fights from there, lighting up the floor in
-##     tile patterns - faster once it's below 35% health.
+##     (like the Great Olm) and fights from there. Its floor waves leave only
+##     one third of the room safe - right, then left, then the middle - and
+##     come faster once it's below 35% health.
 
 const DIVINE := Color(1.0, 0.85, 0.35)
 const ELIDINIS := Color(0.4, 0.7, 1.0)
@@ -16,6 +17,11 @@ const TILE_DELAY := 1.4
 const ENRAGE_BELOW := 0.35
 const ACTIVE_SPEED := 95.0
 const THRONE_SPEED := 260.0
+## Final phase floor waves: only one third of the floor is safe each time,
+## right, then left, then the middle, as in OSRS.
+const WAVE_ORDER := [2, 0, 1]
+const WAVE_EVERY := 4.2
+const WAVE_DELAY := 2.4
 
 ## Set by the raid.
 var room: Rect2
@@ -31,6 +37,7 @@ var kind := "tumeken"
 
 var role := "dormant"
 var tile_timer := 2.0
+var wave_index := 0
 
 
 func _init() -> void:
@@ -80,8 +87,8 @@ func _move(delta: float) -> void:
 				DamageText.spawn(get_parent(), position + Vector2(0, 70), "The Warden takes the throne!", color(), 18)
 			tile_timer -= delta
 			if tile_timer <= 0.0 and not invulnerable:
-				tile_timer = 1.9 if enraged() else 2.7
-				_tiles(0.5 if enraged() else 0.42)
+				tile_timer = WAVE_EVERY * (0.8 if enraged() else 1.0)
+				_floor_wave()
 
 
 func _enter_role(next: String) -> void:
@@ -173,6 +180,25 @@ func _tiles(density: float) -> void:
 			if lit:
 				hazards().rect_blast(Rect2(origin + Vector2(c, r) * CELL, Vector2(CELL, CELL)), TILE_DELAY,
 						bullet_damage * 2.0, "The Wardens' floor", color())
+
+
+## Final phase: the floor lights up everywhere except one third of the room -
+## right, then left, then the middle - and explodes. Get to the safe third.
+func _floor_wave() -> void:
+	var safe: int = WAVE_ORDER[wave_index % WAVE_ORDER.size()]
+	wave_index += 1
+	var cols := int(floor_rect.size.x / CELL)
+	var rows := int(floor_rect.size.y / CELL)
+	var origin := floor_rect.position + (floor_rect.size - Vector2(cols, rows) * CELL) / 2.0
+	var delay := WAVE_DELAY * (0.85 if enraged() else 1.0)
+	for c in cols:
+		if c * 3 / cols == safe:
+			continue
+		for r in rows:
+			hazards().rect_blast(Rect2(origin + Vector2(c, r) * CELL, Vector2(CELL, CELL)), delay,
+					bullet_damage * 3.0, "The Wardens' floor", color())
+	var side: String = ["the left", "the middle", "the right"][safe]
+	DamageText.spawn(get_parent(), player.position + Vector2(0, -50), "Run to %s!" % side, color().lightened(0.3), 16)
 
 
 ## Two strips of divine lightning through the player: one across, one down.

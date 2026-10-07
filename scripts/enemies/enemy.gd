@@ -241,6 +241,21 @@ func _physics_process(delta: float) -> void:
 		fire_timer = _fire(attack)
 
 
+## Scenery that belongs to this enemy but sits still on the ground (Zulrah's
+## swamp, Tekton's anvil): drawn on its own node beneath the enemy, so it
+## doesn't flash when the enemy is hit. `painter` is called with the node to
+## draw on, in world coordinates; the node goes away with the enemy.
+func add_ground_decor(painter: Callable) -> Node2D:
+	var decor := Node2D.new()
+	decor.z_index = -1
+	decor.draw.connect(func(): painter.call(decor))
+	get_tree().process_frame.connect(decor.queue_redraw)
+	get_parent().add_child(decor)
+	get_parent().move_child(decor, 0)
+	tree_exiting.connect(decor.queue_free)
+	return decor
+
+
 ## Freeze in place (Ice Barrage). Bosses shake it off in half the time.
 func freeze(duration: float) -> void:
 	frozen_timer = maxf(frozen_timer, duration * (0.5 if is_boss else 1.0))

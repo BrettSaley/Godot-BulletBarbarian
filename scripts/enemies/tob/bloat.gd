@@ -2,11 +2,15 @@ extends Enemy
 ## The Pestilent Bloat (Theatre of Blood). A swollen corpse that lumbers
 ## around the edge of the room while flies drop rotting limbs all over the
 ## floor. Touching it hurts badly. Every so often it collapses asleep and
-## takes double damage, then wakes with a huge stomp - get clear.
+## takes triple damage (it barely feels hits while walking), then wakes with
+## a huge stomp - get clear.
 
 const ROT := Color(0.45, 0.5, 0.3)
 const WALK_TIME := 8.0
 const SLEEP_TIME := 3.5
+## Damage taken while walking (barely scratched) and while collapsed (wide open).
+const AWAKE_DAMAGE := 0.2
+const ASLEEP_DAMAGE := 3.0
 
 ## Set by the raid.
 var room: Rect2
@@ -39,7 +43,7 @@ func is_asleep() -> bool:
 
 
 func take_damage(amount: float) -> void:
-	super.take_damage(amount * (2.0 if is_asleep() else 1.0))
+	super.take_damage(amount * (ASLEEP_DAMAGE if is_asleep() else AWAKE_DAMAGE))
 
 
 func _attacks() -> Array:
@@ -58,7 +62,7 @@ func _move(delta: float) -> void:
 	walk_timer -= delta
 	if walk_timer <= 0.0:
 		sleep_timer = SLEEP_TIME
-		DamageText.spawn(get_parent(), position + Vector2(0, -60), "Zzz... (double damage!)", Color(0.8, 0.9, 0.6), 16)
+		DamageText.spawn(get_parent(), position + Vector2(0, -60), "Zzz... (triple damage!)", Color(0.8, 0.9, 0.6), 16)
 		return
 	position = position.move_toward(track[next_corner], move_speed * delta)
 	if position.distance_to(track[next_corner]) < 4.0:

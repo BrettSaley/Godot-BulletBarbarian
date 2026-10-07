@@ -1,12 +1,12 @@
 extends Enemy
 ## The Nightmare (the Nightmare's Lair). Starts shielded behind four totems
 ## in the room's corners - destroy them to break her shield - and raises them
-## again at 66% and 33%. Rakes the floor with grasping claws, surges across
+## again at 50%. Rakes the floor with grasping claws, surges across
 ## the room, and plants parasites that burst out and chase you.
 
 const PURPLE := Color(0.55, 0.3, 0.7)
 const CLAW := Color(0.35, 0.2, 0.45)
-const TOTEMS_AT := [1.01, 0.66, 0.33]
+const TOTEMS_AT := [1.01, 0.5]
 const Totem := preload("res://scripts/enemies/raid/glowing_crystal.gd")
 
 var room: Rect2

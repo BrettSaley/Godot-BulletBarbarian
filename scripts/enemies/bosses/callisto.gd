@@ -34,7 +34,9 @@ func _on_attack_started(attack_name: String) -> void:
 			charge_target = player.position + dir_to_player(position) * 80.0
 			windup = CHARGE_WINDUP
 		"roar":
-			player.knock_back(dir_to_player(position) * 140.0)
+			# A ring of shockwaves instead of a shove: overworld bosses never move
+			# the player (it could push them into other monsters' shots).
+			ring(position, 16, 150.0, 7.0, Color(1, 0.7, 0.3))
 			DamageText.spawn(get_parent(), position + Vector2(0, -60), "ROAR!", Color(1, 0.7, 0.3), 20)
 
 

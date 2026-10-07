@@ -61,14 +61,20 @@ func _fire(attack_name: String) -> float:
 	return 1.0
 
 
-func _draw() -> void:
-	# The anvil, drawn from Tekton's point of view so it stays put.
-	var a := (anvil - position) / size_scale
-	draw_rect(Rect2(a + Vector2(-22, -6), Vector2(44, 12)), Color(0.25, 0.25, 0.28))
-	draw_rect(Rect2(a + Vector2(-12, 6), Vector2(24, 14)), Color(0.2, 0.2, 0.22))
-	if attack == "anvil":
-		draw_circle(a + Vector2(0, -8), 8.0, Color(SPARK, 0.6))
+func _ready() -> void:
+	# The anvil stays put on the floor (and doesn't flash when Tekton is hit).
+	add_ground_decor(_draw_anvil)
 
+
+func _draw_anvil(ci: Node2D) -> void:
+	var s := size_scale
+	ci.draw_rect(Rect2(anvil + Vector2(-22, -6) * s, Vector2(44, 12) * s), Color(0.25, 0.25, 0.28))
+	ci.draw_rect(Rect2(anvil + Vector2(-12, 6) * s, Vector2(24, 14) * s), Color(0.2, 0.2, 0.22))
+	if attack == "anvil":
+		ci.draw_circle(anvil + Vector2(0, -8) * s, 8.0 * s, Color(SPARK, 0.6))
+
+
+func _draw() -> void:
 	var plate := Color(0.42, 0.45, 0.52)
 	var dark := Color(0.2, 0.2, 0.25)
 	var molten := Color(1.0, 0.5, 0.15)

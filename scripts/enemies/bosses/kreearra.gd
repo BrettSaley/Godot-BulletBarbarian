@@ -43,9 +43,9 @@ func _fire(attack_name: String) -> float:
 			projectile_style = Projectiles.Style.ARROW
 			return 0.9
 		"gust":
-			# Knock the player away, then drop wind blasts where they land.
+			# Wind blasts around the player (no shove: overworld bosses never move
+			# the player into other monsters' shots).
 			var away := (player.position - position).normalized()
-			player.knock_back(away * 110.0)
 			hazards().blast(player.position + away * 60.0, 55.0, 1.0, bullet_damage * 2.0, display_name, WIND)
 			DamageText.spawn(get_parent(), player.position + Vector2(0, -40), "GUST!", WIND, 16)
 			return 2.0
