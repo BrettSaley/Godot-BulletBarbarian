@@ -255,8 +255,9 @@ func _physics_process(delta: float) -> void:
 ## doesn't flash when the enemy is hit. `painter` is called with the node to
 ## draw on, in world coordinates; the node goes away with the enemy.
 func add_ground_decor(painter: Callable) -> Node2D:
+	# Kept at z 0: below that it would sit under the world or raid floor. Being
+	# the enemy layer's first child keeps it beneath every enemy.
 	var decor := Node2D.new()
-	decor.z_index = -1
 	decor.draw.connect(func(): painter.call(decor))
 	get_tree().process_frame.connect(decor.queue_redraw)
 	get_parent().add_child(decor)
