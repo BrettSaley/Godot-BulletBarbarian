@@ -32,6 +32,10 @@ const DPS_PER_HP_UNIT := 50.0 / 0.8
 const RAID_DPS := [1400.0, 2760.0, 4260.0]
 ## Damage multiplier in each raid, against that raid's expected gear.
 const RAID_DAMAGE := [4.2, 5.8, 7.2]
+## The Inferno is set against full GIGA gear at level 60 - and meant to be
+## brutal even then.
+const INFERNO_DPS := 8500.0
+const INFERNO_DAMAGE := 11.0
 const REALM_XP := [1.0, 2.0, 3.0]
 ## Lane warnings are always bright red so they stand out on any floor.
 const WARNING_COLOR := Color(1.0, 0.15, 0.1)
@@ -93,6 +97,8 @@ var tier := 0
 var realm := 0
 ## Raid monsters scale against the raid, not an overworld zone.
 var in_raid := false
+## Inferno monsters scale against INFERNO_DPS and INFERNO_DAMAGE instead.
+var inferno := false
 ## 0-1 blend used by attack patterns to get denser and faster.
 var difficulty := 0.0
 
@@ -127,6 +133,9 @@ func setup(zone_tier: int, shot_layer: Node2D, target_player: Node2D, realm_inde
 	difficulty = clampf(tier / 6.0, 0.0, 1.0)
 	var dps: float = RAID_DPS[realm] if in_raid else expected_dps(realm, tier)
 	var damage: float = RAID_DAMAGE[realm] if in_raid else expected_damage(realm, tier)
+	if inferno:
+		dps = INFERNO_DPS
+		damage = INFERNO_DAMAGE
 	max_hp *= dps / DPS_PER_HP_UNIT
 	hp = max_hp
 	xp = roundi(xp * (1.0 + 0.6 * tier) * REALM_XP[realm])
@@ -380,6 +389,7 @@ func hazards() -> Node2D:
 ## raid are cleaned up with the room.
 func summon(add: Enemy, pos: Vector2) -> Enemy:
 	add.position = pos
+	add.inferno = inferno
 	add.setup(tier, shots, player, realm, in_raid)
 	add.bounds = bounds
 	if bounds.has_area():

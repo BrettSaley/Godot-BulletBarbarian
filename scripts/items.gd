@@ -12,7 +12,8 @@ extends RefCounted
 ## Bosses (world and dungeon) drop the two tiers above their realm's best monster drop.
 ## Dungeon uniques (UT, white bags) drop from dungeon bosses and sit just above
 ## their realm's best tier. Raid uniques are their own GIGA tier (gold bags),
-## only from raid chests, better than anything else and all equally strong.
+## only from raid chests, better than anything else and all equally strong -
+## except the Inferno Ring, the Inferno's reward, which outclasses them all.
 
 const TIER_NAMES := ["Bronze", "Iron", "Steel", "Black", "White", "Mithril", "Adamant", "Rune", "Dragon",
 		"Barrows", "Guthix", "Saradomin", "Zamorak", "Armadyl", "Bandos", "Oathplate", "Torva"]
@@ -125,6 +126,7 @@ const RAID_UNIQUES := {
 	"cox": ["twisted_bow", "dragon_claws", "kodai_wand", "ancestral_robe_top", "ancestral_hat", "twisted_buckler"],
 	"tob": ["scythe_of_vitur", "sanguine_longbow", "sanguinesti_staff", "justiciar_chestguard", "justiciar_faceguard", "avernic_defender"],
 	"toa": ["osmumtens_fang", "masori_longbow", "tumekens_shadow", "masori_body", "masori_mask", "lightbearer"],
+	"inferno": ["inferno_ring"],
 }
 
 ## RotMG-style bag colours: brown, pink, purple, white for dungeon UTs and
@@ -278,12 +280,12 @@ static func roll_boss_drop(realm := 0) -> Array:
 
 
 ## A raid chest: the realm's top tier, and a chance at one of that raid's
-## GIGA uniques (the "purple").
+## GIGA uniques (the "purple"). The Inferno's chest always holds the Inferno Ring.
 static func raid_chest_loot(raid_id: String, realm: int) -> Array:
 	var loot := []
 	for i in randi_range(2, 3):
 		loot.append(random_item(REALM_TIERS[realm][4]))
-	if randf() < PURPLE_CHANCE:
+	if raid_id == "inferno" or randf() < PURPLE_CHANCE:
 		loot.push_front(unique(RAID_UNIQUES[raid_id].pick_random()))
 	return loot
 
@@ -382,6 +384,11 @@ static func unique(id: String) -> Dictionary:
 		"lightbearer":
 			item = {"name": "Lightbearer", "slot": "ring", "stats": {"mp": 250, "dexterity": 22, "attack": 16},
 					"note": "Tombs of Amascut. Radiant, and quick to recover."}
+		# --- The Inferno ---
+		"inferno_ring":
+			item = {"name": "Inferno Ring", "slot": "ring", "color": Color(1.0, 0.45, 0.1),
+					"stats": {"hp": 600, "mp": 300, "attack": 35, "defense": 30, "speed": 25, "dexterity": 35, "vitality": 30},
+					"note": "The Inferno. Forged in TzKal-Zuk's flames; burns with every power."}
 		_:
 			return weapon(0)
 	item.tier = GIGA

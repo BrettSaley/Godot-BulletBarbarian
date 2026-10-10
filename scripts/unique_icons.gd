@@ -17,7 +17,7 @@ static func has_icon(id: String) -> bool:
 		"dragon_chainbody", "sarachnis_chitin_helm", "trident_of_the_seas", "fire_cape",
 		"crystal_helm", "dragon_hunter_lance", "primordial_boots", "inquisitors_hauberk",
 		"dragonfire_shield", "craws_bow", "abyssal_crown", "malediction_ward",
-		"kodai_wand", "sanguine_longbow", "masori_longbow",
+		"kodai_wand", "sanguine_longbow", "masori_longbow", "inferno_ring",
 	]
 
 
@@ -119,6 +119,19 @@ static func draw(ci: CanvasItem, id: String, c: Vector2) -> void:
 			ci.draw_arc(c + Vector2(0, 3), 8.0, 0.0, TAU, 20, GOLD, 3.0)
 			ci.draw_circle(c + Vector2(0, -6), 6.0, Color(1, 0.95, 0.6, 0.35))
 			ci.draw_circle(c + Vector2(0, -6), 3.5, Color(1, 1, 0.85))
+		# --- The Inferno ---
+		"inferno_ring":
+			# An obsidian band wreathed in flame, set with a molten stone.
+			ci.draw_circle(c + Vector2(0, 2), 13.0, Color(1.0, 0.4, 0.05, 0.25))
+			for k in 6:
+				var a := -PI / 2.0 + (k - 2.5) * 0.5
+				ci.draw_colored_polygon(PackedVector2Array([c + Vector2(0, 2) + Vector2.from_angle(a - 0.2) * 8.0,
+						c + Vector2(0, 2) + Vector2.from_angle(a) * 15.0, c + Vector2(0, 2) + Vector2.from_angle(a + 0.2) * 8.0]),
+						Color(1.0, 0.55, 0.1))
+			ci.draw_arc(c + Vector2(0, 3), 8.0, 0.0, TAU, 20, Color(0.15, 0.1, 0.1), 3.5)
+			ci.draw_arc(c + Vector2(0, 3), 8.0, PI * 0.1, PI * 0.9, 10, Color(1.0, 0.45, 0.1), 1.5)
+			ci.draw_circle(c + Vector2(0, -6), 4.5, Color(1.0, 0.35, 0.05))
+			ci.draw_circle(c + Vector2(-1, -7), 1.8, Color(1, 0.9, 0.5))
 		# --- Lumbridge dungeons ---
 		"dragon_chainbody":
 			_robe(ci, c, Color(0.75, 0.15, 0.12), Color(0.55, 0.1, 0.08), Color(0.75, 0.15, 0.12))

@@ -8,8 +8,9 @@ extends Node2D
 ## realm's dungeons; after DUNGEONS_PER_RAID dungeons are cleared, the next
 ## world boss opens the realm's raid instead. Completing the Chambers of Xeric
 ## unlocks God Wars, the Theatre of Blood unlocks the Wilderness, and the
-## Tombs of Amascut are the last raid. Every realm's hub has portals to the
-## others; unlocked realms can always be revisited.
+## Tombs of Amascut are the last raid. Completing them opens the Inferno
+## (beta), the final challenge. Every realm's hub has portals to the others;
+## unlocked realms can always be revisited.
 
 const DUNGEON_PORTAL_LIFETIME := 60.0
 const DUNGEONS_PER_RAID := 2
@@ -28,6 +29,9 @@ const REALM_PORTAL_OFFSETS := [Vector2(-170, -40), Vector2(170, -40)]
 ## Raid portals sit in an arc below the campfire, CoX to ToA from left to right.
 const RAID_PORTAL_OFFSETS := [Vector2(-150, 140), Vector2(0, 205), Vector2(150, 140)]
 const HUB_PORTAL_COLORS := [Color(0.45, 0.85, 0.4), Color(0.6, 0.85, 1.0), Color(0.9, 0.3, 0.25)]
+## The Inferno's portal sits below the raid portals.
+const INFERNO_PORTAL_OFFSET := Vector2(0, 290)
+const INFERNO_PORTAL_COLOR := Color(1.0, 0.4, 0.05)
 
 @onready var world: World = $World
 @onready var bags: Node2D = $Bags
@@ -52,6 +56,8 @@ var dungeon_queues := [[], [], []]
 var last_dungeon := ["", "", ""]
 ## How many realms this Barbarian has unlocked (1 = only Lumbridge).
 var unlocked_realms := 1
+## Opened by completing the Tombs of Amascut.
+var inferno_unlocked := false
 var current_bag: LootBag
 var shown_bag_size := -1
 var locked_notice_timer := 0.0
@@ -137,6 +143,7 @@ func _on_slot_chosen(chosen_slot: int) -> void:
 		return
 	player.load_save(save.player)
 	unlocked_realms = save.unlocked_realms
+	inferno_unlocked = save.get("inferno_unlocked", false)
 	dungeons_done = save.dungeons_done
 	# Older saves reset progress after a raid; a raid that unlocked the next
 	# realm was clearly opened, so keep its portal open.
@@ -181,6 +188,7 @@ func _save() -> void:
 	if not saving or choosing or not player.is_alive():
 		return
 	SaveGame.write(slot, {"player": player.to_save(), "realm": realm, "unlocked_realms": unlocked_realms,
+			"inferno_unlocked": inferno_unlocked,
 			"dungeons_done": dungeons_done.duplicate(), "last_dungeon": last_dungeon.duplicate(),
 			"dungeon_queues": dungeon_queues.duplicate(true), "boss_queues": spawner.boss_queues.duplicate(true),
 			"last_bosses": spawner.last_bosses.duplicate()})
@@ -268,6 +276,7 @@ func _escape_to_hub() -> void:
 ## Dev tool: every realm and raid portal opens.
 func _unlock_all_portals() -> void:
 	unlocked_realms = Realms.count()
+	inferno_unlocked = true
 	for r in Realms.count():
 		dungeons_done[r] = DUNGEONS_PER_RAID
 	_build_hub_portals()
@@ -414,6 +423,15 @@ func _build_hub_portals() -> void:
 			portal.lock_hint = "%s dungeons cleared: %d/%d" % [data.name, dungeons_done[raid_realm], DUNGEONS_PER_RAID]
 		portal.position = World.CENTER + RAID_PORTAL_OFFSETS[raid_realm]
 		portals.add_child(portal)
+	var inferno := Portal.new()
+	inferno.add_to_group("hub_portals")
+	inferno.label = "The Inferno (Beta)"
+	inferno.destination = "raid:inferno"
+	inferno.color = INFERNO_PORTAL_COLOR
+	inferno.locked = not inferno_unlocked
+	inferno.lock_hint = "Complete the Tombs of Amascut to unlock"
+	inferno.position = World.CENTER + INFERNO_PORTAL_OFFSET
+	portals.add_child(inferno)
 
 
 ## Shots from both sides stop at walls: inside `areas` only (none = no walls).
@@ -512,11 +530,18 @@ func _on_raid_chest_opened(pos: Vector2, loot: Array) -> void:
 	player.raise_level_cap(40 + 20 * raid_realm)
 	var message := "A purple! %s" % loot[0].name if purple else "The chest holds the finest gear of %s." % Realms.info(raid_realm).name
 	var next_realm := raid_realm + 1
-	if next_realm < Realms.count() and next_realm >= unlocked_realms:
+	if instance.raid_id == "inferno":
+		message = "TzKal-Zuk is slain! The %s is yours.\nYou have conquered the Inferno!" % loot[0].name
+	elif instance.raid_id == "toa":
+		if not inferno_unlocked:
+			inferno_unlocked = true
+			_build_hub_portals()
+			message += "\nThe Inferno has opened! Its portal waits in every hub. Only the strongest survive."
+		else:
+			message += "\nYou have conquered every raid in the land!"
+	elif next_realm < Realms.count() and next_realm >= unlocked_realms:
 		unlocked_realms = next_realm + 1
 		message += "\n%s unlocked! Its portal waits at %s." % [Realms.info(next_realm).name, Realms.info(raid_realm).hub]
-	elif next_realm >= Realms.count():
-		message += "\nYou have conquered every raid in the land!"
 	hud.show_message(message, 6.0)
 	_spawn_exit(pos, raid_realm, Vector2(120, 0))
 

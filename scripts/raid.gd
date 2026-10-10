@@ -11,6 +11,10 @@ extends Node2D
 ##   Tombs of Amascut (Wilderness) - Akkha, Ba-Ba, Kephri and Zebak in a random
 ##     order, then both Wardens: the Obelisk, one Warden fighting while the
 ##     other casts from the dais, then the survivor on its throne.
+##   The Inferno (beta, opens after the Tombs of Amascut) - one great arena,
+##     ten waves of TzHaar-born monsters, then TzKal-Zuk on wave ten. Tuned
+##     to be brutal even in the best gear. Its chest always holds the
+##     Inferno Ring.
 ## All positions are in world coordinates (the node itself sits at 0,0).
 
 signal enemy_died(enemy: Enemy)
@@ -37,6 +41,8 @@ const Kephri := preload("res://scripts/enemies/toa/kephri.gd")
 const Zebak := preload("res://scripts/enemies/toa/zebak.gd")
 const Wardens := preload("res://scripts/enemies/toa/wardens.gd")
 const Obelisk := preload("res://scripts/enemies/toa/obelisk.gd")
+const Jad := preload("res://scripts/enemies/dungeon/jad.gd")
+const Zuk := preload("res://scripts/enemies/inferno/zuk.gd")
 
 ## Built well past the realm's east edge.
 const ORIGIN := Vector2(World.SIZE.x + 1500, 600)
@@ -44,6 +50,9 @@ const ROOM_SIZE := Vector2(900, 560)
 const SMALL_ROOM := Vector2(560, 440)
 const BIG_ROOM := Vector2(1100, 680)
 const CORRIDOR := Vector2(220, 140)
+const INFERNO_ROOM := Vector2(1300, 820)
+## Zuk's ledge along the top of the Inferno arena.
+const ZUK_LEDGE := 140.0
 ## The top of the Olm room is the wall its head and hands sit in.
 const OLM_WALL := 130.0
 ## The Wardens stand on a raised dais along the top of their room.
@@ -57,6 +66,7 @@ const RAIDS := {
 	"cox": {"name": "Chambers of Xeric", "floor": Color(0.2, 0.19, 0.22), "accent": Color(0.85, 0.75, 0.55)},
 	"tob": {"name": "Theatre of Blood", "floor": Color(0.22, 0.14, 0.15), "accent": Color(0.9, 0.3, 0.3)},
 	"toa": {"name": "Tombs of Amascut", "floor": Color(0.42, 0.35, 0.24), "accent": Color(0.95, 0.8, 0.4)},
+	"inferno": {"name": "The Inferno", "floor": Color(0.2, 0.1, 0.08), "accent": Color(1.0, 0.45, 0.1)},
 }
 const ROOM_NAMES := {
 	"tekton": "Tekton", "vanguards": "Vanguards", "vasa": "Vasa Nistirio",
@@ -64,8 +74,23 @@ const ROOM_NAMES := {
 	"maiden": "The Maiden of Sugadinti", "bloat": "The Pestilent Bloat", "nylocas": "The Nylocas",
 	"sotetseg": "Sotetseg", "xarpus": "Xarpus", "verzik": "Verzik Vitur",
 	"akkha": "Path of Het: Akkha", "baba": "Path of Apmeken: Ba-Ba", "kephri": "Path of Scabaras: Kephri",
-	"zebak": "Path of Crondis: Zebak", "wardens": "The Wardens", "chest": "Reward Chamber",
+	"zebak": "Path of Crondis: Zebak", "wardens": "The Wardens", "inferno": "The Inferno", "chest": "Reward Chamber",
 }
+## Waves 1-9 of the Inferno (wave 10 is TzKal-Zuk): how many of each monster.
+const INFERNO_WAVES := [
+	{"nibbler": 4, "bat": 2},
+	{"nibbler": 6, "bat": 2, "blob": 1},
+	{"nibbler": 4, "bat": 2, "blob": 2},
+	{"nibbler": 4, "bat": 2, "blob": 1, "meleer": 1},
+	{"nibbler": 4, "blob": 1, "meleer": 2, "ranger": 1},
+	{"nibbler": 4, "bat": 2, "meleer": 1, "ranger": 2},
+	{"nibbler": 4, "blob": 1, "meleer": 1, "ranger": 1, "mager": 1},
+	{"nibbler": 6, "meleer": 2, "ranger": 2, "mager": 1},
+	{"nibbler": 4, "jad": 2},
+]
+const INFERNO_TOTAL_WAVES := 10
+## Breather between Inferno waves.
+const INFERNO_WAVE_BREAK := 4.0
 ## A Vanguard this far (in health %) below the healthiest one becomes immune.
 const VANGUARD_SPREAD := 0.3
 ## Pause before the Olm rises with new hands between phases.
@@ -113,6 +138,8 @@ func build(id: String, target_player: Node2D, shot_layer: Node2D, enemy_layer: N
 			var paths := ["akkha", "baba", "kephri", "zebak"]
 			paths.shuffle()
 			kinds += paths + ["wardens"]
+		"inferno":
+			kinds.append("inferno")
 	kinds.append("chest")
 	var x := ORIGIN.x
 	for kind in kinds:
@@ -121,6 +148,8 @@ func build(id: String, target_player: Node2D, shot_layer: Node2D, enemy_layer: N
 			size = SMALL_ROOM
 		elif kind in ["olm", "verzik", "wardens"]:
 			size = BIG_ROOM
+		elif kind == "inferno":
+			size = INFERNO_ROOM
 		var rect := Rect2(Vector2(x, ORIGIN.y - size.y / 2.0), size)
 		if not rooms.is_empty():
 			corridors.append(Rect2(Vector2(x - CORRIDOR.x, ORIGIN.y - CORRIDOR.y / 2.0), CORRIDOR))
@@ -194,6 +223,8 @@ func _floor(room: Dictionary) -> Rect2:
 		rect = Rect2(rect.position + Vector2(0, OLM_WALL), rect.size - Vector2(0, OLM_WALL))
 	elif room.kind == "wardens":
 		rect = Rect2(rect.position + Vector2(0, WARDEN_DAIS), rect.size - Vector2(0, WARDEN_DAIS))
+	elif room.kind == "inferno":
+		rect = Rect2(rect.position + Vector2(0, ZUK_LEDGE), rect.size - Vector2(0, ZUK_LEDGE))
 	return rect.grow(-14)
 
 
@@ -212,6 +243,8 @@ func _physics_process(delta: float) -> void:
 						_update_olm_phases(room, delta)
 					"nylocas":
 						_update_nylocas(room, delta)
+					"inferno":
+						_update_inferno(room, delta)
 				room.required = room.required.filter(func(e): return is_instance_valid(e) and e.hp > 0.0)
 				if room.required.is_empty() and not room.get("busy", false):
 					_clear(room)
@@ -302,6 +335,11 @@ func _start(room: Dictionary) -> void:
 			wardens[0].partner = wardens[1]
 			wardens[1].partner = wardens[0]
 			room.required = wardens
+		# --- The Inferno ---
+		"inferno":
+			room.busy = true
+			room.wave = 0
+			room.wave_timer = 2.0
 	walkable_changed.emit(walkable())
 	announce.emit(ROOM_NAMES[room.kind])
 
@@ -402,10 +440,62 @@ func _update_nylocas(room: Dictionary, delta: float) -> void:
 		announce.emit("The Nylocas Vasilias emerges!")
 
 
+# --- The Inferno ---
+
+## Each wave starts a short breather after the last one is wiped out (blob
+## splits and Jal-Zek's risen monsters included); wave ten is TzKal-Zuk.
+func _update_inferno(room: Dictionary, delta: float) -> void:
+	if not room.busy:
+		return
+	var alive := get_tree().get_nodes_in_group("raid_enemies").any(
+			func(e): return is_instance_valid(e) and not e.is_queued_for_deletion() and e.hp > 0.0)
+	if alive:
+		room.wave_timer = INFERNO_WAVE_BREAK
+		return
+	room.wave_timer -= delta
+	if room.wave_timer > 0.0:
+		return
+	room.wave += 1
+	var rect: Rect2 = room.rect
+	if room.wave < INFERNO_TOTAL_WAVES:
+		_spawn_inferno_wave(room, INFERNO_WAVES[room.wave - 1])
+		announce.emit("Wave %d of %d" % [room.wave, INFERNO_TOTAL_WAVES])
+		return
+	# Wave 10: Zuk takes his place on the ledge.
+	spawn_bounds = rect.grow(-14)
+	var zuk: Enemy = Zuk.new()
+	zuk.room = rect
+	zuk.floor_rect = _floor(room)
+	room.required = [_add(zuk, Vector2(rect.get_center().x, rect.position.y + ZUK_LEDGE * 0.5))]
+	spawn_bounds = _floor(room)
+	room.busy = false
+	announce.emit("Wave 10: TzKal-Zuk awakens! Hide behind the glyph when he charges!")
+
+
+## Monsters pour in across the east side of the arena, away from the player.
+func _spawn_inferno_wave(room: Dictionary, wave: Dictionary) -> void:
+	var area := _floor(room)
+	var fallen: Array = []
+	for kind in wave:
+		for i in wave[kind]:
+			var pos := Vector2(randf_range(area.position.x + area.size.x * 0.45, area.end.x - 60),
+					randf_range(area.position.y + 60, area.end.y - 60))
+			var monster: Enemy
+			if kind == "jad":
+				monster = Jad.new()
+				monster.display_name = "JalTok-Jad"
+				monster.room = area
+			else:
+				monster = InfernoMonster.make(kind, fallen)
+			_add(monster, pos)
+			monster.aggro = true
+
+
 # --- Spawning and rewards ---
 
 func _add(enemy: Enemy, pos: Vector2) -> Enemy:
 	enemy.position = pos
+	enemy.inferno = raid_id == "inferno"
 	enemy.setup(RAID_TIER, shots, player, realm, true)
 	enemy.leash_range = INF  # sealed in the room anyway
 	enemy.bounds = spawn_bounds
@@ -490,6 +580,18 @@ func _draw_room(room: Dictionary, floor_color: Color) -> void:
 			draw_rect(Rect2(mid - 60, dais.position.y + 12, 120, 100), accent.darkened(0.2))
 			draw_colored_polygon(PackedVector2Array([Vector2(mid - 60, dais.position.y + 12), Vector2(mid, dais.position.y - 10),
 					Vector2(mid + 60, dais.position.y + 12)]), accent)
+		"inferno":
+			# Zuk's obsidian ledge above a river of lava.
+			var ledge := Rect2(rect.position, Vector2(rect.size.x, ZUK_LEDGE))
+			draw_rect(ledge, Color(0.1, 0.06, 0.06))
+			draw_rect(Rect2(ledge.position.x, ledge.end.y - 16, ledge.size.x, 16),
+					Color(1.0, 0.4 + 0.1 * sin(time * 3.0), 0.05))
+			for k in 16:
+				var lx := rect.position.x + 40 + k * 80.0
+				draw_circle(Vector2(lx, ledge.end.y - 8), 5.0 + 2.0 * sin(time * 4.0 + k), Color(1, 0.75, 0.2, 0.8))
+			if room.state != "fighting" and room.get("wave", 0) == 0:
+				draw_string(ThemeDB.fallback_font, rect.get_center() + Vector2(-rect.size.x / 2.0, 0),
+						"Ten waves. Then TzKal-Zuk. (Beta)", HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 22, accent)
 		"chest":
 			_draw_chest(rect.get_center())
 

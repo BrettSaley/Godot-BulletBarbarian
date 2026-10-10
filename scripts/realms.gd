@@ -112,8 +112,11 @@ static func count() -> int:
 	return DATA.size()
 
 
-## Which realm's raid is this ("cox", "tob", "toa")?
+## Which realm's raid is this ("cox", "tob", "toa")? The Inferno, which opens
+## after the Tombs of Amascut, counts as the Wilderness's.
 static func realm_of_raid(raid_id: String) -> int:
+	if raid_id == "inferno":
+		return WILDERNESS
 	for i in DATA.size():
 		if DATA[i].raid == raid_id:
 			return i
