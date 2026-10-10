@@ -526,12 +526,13 @@ func _on_raid_chest_opened(pos: Vector2, loot: Array) -> void:
 	_spawn_bag(pos, loot)
 	var purple := loot.any(func(item): return item.tier == Items.GIGA)
 	var raid_realm: int = instance.realm
-	# Completing a raid raises the level cap: CoX to 40, ToB to 60.
-	player.raise_level_cap(40 + 20 * raid_realm)
+	# Completing a raid raises the level cap: CoX to 40, ToB and ToA to 60,
+	# the Inferno to 80.
+	player.raise_level_cap(80 if instance.raid_id == "inferno" else mini(40 + 20 * raid_realm, 60))
 	var message := "A purple! %s" % loot[0].name if purple else "The chest holds the finest gear of %s." % Realms.info(raid_realm).name
 	var next_realm := raid_realm + 1
 	if instance.raid_id == "inferno":
-		message = "TzKal-Zuk is slain! The %s is yours.\nYou have conquered the Inferno!" % loot[0].name
+		message = "TzKal-Zuk is slain! The %s is yours.\nYou have conquered the Inferno! Level cap raised to 80." % loot[0].name
 	elif instance.raid_id == "toa":
 		if not inferno_unlocked:
 			inferno_unlocked = true

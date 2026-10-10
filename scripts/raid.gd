@@ -91,6 +91,10 @@ const INFERNO_WAVES := [
 const INFERNO_TOTAL_WAVES := 10
 ## Breather between Inferno waves.
 const INFERNO_WAVE_BREAK := 4.0
+## New Inferno monsters stand dormant this long before they attack.
+const INFERNO_GRACE := 2.0
+## Inferno monsters arrive this far in from the arena's walls.
+const INFERNO_EDGE_INSET := 45.0
 ## A Vanguard this far (in health %) below the healthiest one becomes immune.
 const VANGUARD_SPREAD := 0.3
 ## Pause before the Olm rises with new hands between phases.
@@ -472,14 +476,14 @@ func _update_inferno(room: Dictionary, delta: float) -> void:
 	announce.emit("Wave 10: TzKal-Zuk awakens! Hide behind the glyph when he charges!")
 
 
-## Monsters pour in across the east side of the arena, away from the player.
+## Monsters arrive around the edges of the arena and stand dormant for
+## INFERNO_GRACE seconds before they attack.
 func _spawn_inferno_wave(room: Dictionary, wave: Dictionary) -> void:
 	var area := _floor(room)
 	var fallen: Array = []
 	for kind in wave:
 		for i in wave[kind]:
-			var pos := Vector2(randf_range(area.position.x + area.size.x * 0.45, area.end.x - 60),
-					randf_range(area.position.y + 60, area.end.y - 60))
+			var pos := _inferno_edge_spot(area)
 			var monster: Enemy
 			if kind == "jad":
 				monster = Jad.new()
@@ -489,6 +493,22 @@ func _spawn_inferno_wave(room: Dictionary, wave: Dictionary) -> void:
 				monster = InfernoMonster.make(kind, fallen)
 			_add(monster, pos)
 			monster.aggro = true
+			monster.dormant_timer = INFERNO_GRACE
+
+
+## A random spot just inside one of the arena's four walls.
+func _inferno_edge_spot(area: Rect2) -> Vector2:
+	var inner := area.grow(-INFERNO_EDGE_INSET)
+	var x := randf_range(inner.position.x, inner.end.x)
+	var y := randf_range(inner.position.y, inner.end.y)
+	match randi() % 4:
+		0:
+			return Vector2(x, inner.position.y)
+		1:
+			return Vector2(x, inner.end.y)
+		2:
+			return Vector2(inner.position.x, y)
+	return Vector2(inner.end.x, y)
 
 
 # --- Spawning and rewards ---
@@ -617,4 +637,5 @@ func _draw_chest(c: Vector2) -> void:
 
 func _roll_chest() -> void:
 	chest_loot = Items.raid_chest_loot(raid_id, realm)
-	chest_had_purple = chest_loot.any(func(item): return item.tier == Items.GIGA)
+	# The Inferno Ring is a sure thing, so there's no purple to reveal.
+	chest_had_purple = raid_id != "inferno" and chest_loot.any(func(item): return item.tier == Items.GIGA)

@@ -280,12 +280,15 @@ static func roll_boss_drop(realm := 0) -> Array:
 
 
 ## A raid chest: the realm's top tier, and a chance at one of that raid's
-## GIGA uniques (the "purple"). The Inferno's chest always holds the Inferno Ring.
+## GIGA uniques (the "purple"). The Inferno's chest holds only the Inferno Ring,
+## every time.
 static func raid_chest_loot(raid_id: String, realm: int) -> Array:
+	if raid_id == "inferno":
+		return [unique("inferno_ring")]
 	var loot := []
 	for i in randi_range(2, 3):
 		loot.append(random_item(REALM_TIERS[realm][4]))
-	if raid_id == "inferno" or randf() < PURPLE_CHANCE:
+	if randf() < PURPLE_CHANCE:
 		loot.push_front(unique(RAID_UNIQUES[raid_id].pick_random()))
 	return loot
 

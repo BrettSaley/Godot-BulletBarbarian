@@ -120,6 +120,9 @@ var time := 0.0
 var orbit_dir := 1.0
 ## Seconds left frozen by an Ice Barrage.
 var frozen_timer := 0.0
+## Just arrived (Inferno waves): stands still, faded, and does no harm until
+## this runs out. Can still be hit.
+var dormant_timer := 0.0
 
 
 ## `in_raid` scales against the realm's raid (expecting its near-best gear)
@@ -199,6 +202,11 @@ func _physics_process(delta: float) -> void:
 	time += delta
 	flash_timer -= delta
 	modulate = Color(1, 0.55, 0.55) if flash_timer > 0.0 else Color(1, 1, 1)
+	if dormant_timer > 0.0:
+		dormant_timer -= delta
+		modulate.a = 0.45
+		queue_redraw()
+		return
 	if frozen_timer > 0.0:
 		# Frozen solid (Ice Barrage): icy blue, can't move or attack.
 		frozen_timer -= delta

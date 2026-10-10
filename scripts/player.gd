@@ -8,9 +8,10 @@ signal died(killer: String)
 signal changed  # stats, hp, xp, equipment or inventory changed
 signal leveled_up(new_level: int)
 
-## The level cap starts at 20 and rises as raids are completed (see main.gd).
+## The level cap starts at 20 and rises as raids are completed (see main.gd):
+## 40, 60, and 80 for the Inferno.
 const START_LEVEL_CAP := 20
-const MAX_LEVEL := 60
+const MAX_LEVEL := 80
 const INVENTORY_SIZE := 8
 const BASE_STATS := {"hp": 200, "mp": 100, "attack": 12, "defense": 0, "speed": 12, "dexterity": 12, "vitality": 12}
 const PER_LEVEL := {"hp": 25, "mp": 5, "attack": 1, "defense": 0, "speed": 1, "dexterity": 1, "vitality": 1}
@@ -278,7 +279,7 @@ func add_xp(amount: int) -> void:
 	changed.emit()
 
 
-## Final score once level 60 is reached.
+## Final score once level 80 is reached.
 func at_final_level() -> bool:
 	return level >= MAX_LEVEL
 

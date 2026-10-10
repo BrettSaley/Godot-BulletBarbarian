@@ -7,8 +7,8 @@ extends CanvasLayer
 signal chosen(slot: int)
 
 const CARD_SIZE := Vector2(290, 330)
-## Level 60 is the cap, where the level is replaced by a score.
-const FINAL_LEVEL := 60
+## Level 80 is the cap, where the level is replaced by a score.
+const FINAL_LEVEL := 80
 
 var cards: HBoxContainer
 var confirm: ConfirmationDialog
